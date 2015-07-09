@@ -26,6 +26,7 @@ An empty aggregate manager delegate
 
 import gcf.geni.am.am3 as am3
 import logging
+from gcf.sfa.trust.certificate import Certificate
 
 class MyTestbedDelegate(am3.ReferenceAggregateManager):
     CONFIG_LOCATIONS=["/etc/geni-tools-delegate/testbed.ini", 
@@ -125,3 +126,17 @@ class MyTestbedDelegate(am3.ReferenceAggregateManager):
                                     options, 
                                     privileges)
         return self.successResult(True)
+
+
+
+    def getAggregateManagerId(self, certfile=None):
+        if not hasattr(self, 'aggregate_manager_id'):
+            cert=Certificate(filename=certfile)
+            altSubject=cert.get_extension('subjectAltName')
+            altSubjects=altSubject.split(', ')  
+            publicids=[s for s in altSubjects if 'publicid' in s]
+            if len(publicids) < 1:
+                raise Exception("Could not get aggregate manager id from subjectAltName as no altName has the string publicid")
+            self.aggregate_manager_id=publicids[0][4:]
+            self.logger.info("Will run am with %s as component_manager_id"%self.aggregate_manager_id)
+        return self.aggregate_manager_id
