@@ -24,8 +24,10 @@
 An empty aggregate manager delegate 
 """
 
-import gcf.geni.am.am3 as am3
+from ConfigParser import SafeConfigParser
 import logging
+
+import gcf.geni.am.am3 as am3
 from gcf.sfa.trust.certificate import Certificate
 
 class MyTestbedDelegate(am3.ReferenceAggregateManager):
