@@ -25,6 +25,7 @@ An empty aggregate manager delegate
 """
 
 import gcf.geni.am.am3 as am3
+import logging
 
 class MyTestbedDelegate(am3.ReferenceAggregateManager):
     CONFIG_LOCATIONS=["/etc/geni-tools-delegate/testbed.ini", 
