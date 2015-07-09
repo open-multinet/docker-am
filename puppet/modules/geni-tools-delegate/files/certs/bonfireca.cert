@@ -1,0 +1,88 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            88:a7:ae:ab:8e:4b:91:dc
+        Signature Algorithm: sha1WithRSAEncryption
+        Issuer: C=DE, ST=Berlin, O=Fraunhofer, OU=FOKUS, CN=BonFIRE-RootCA/emailAddress=thomas.guenther@fokus.fraunhofer.de
+        Validity
+            Not Before: Dec  9 09:38:58 2010 GMT
+            Not After : Dec  8 09:38:58 2015 GMT
+        Subject: C=DE, ST=Berlin, O=Fraunhofer, OU=FOKUS, CN=BonFIRE-RootCA/emailAddress=thomas.guenther@fokus.fraunhofer.de
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+            RSA Public Key: (2048 bit)
+                Modulus (2048 bit):
+                    00:ac:5d:29:17:36:e4:eb:f1:f5:6c:3a:cb:00:4d:
+                    47:ca:88:5a:f9:8c:34:3f:ca:89:87:2f:4f:5e:3c:
+                    dd:59:a3:58:3b:69:d1:45:c1:f9:cf:c0:91:8e:2c:
+                    1c:27:16:c8:d2:8f:fd:36:2e:12:6c:94:c2:52:9c:
+                    93:09:35:f3:b4:32:02:82:29:a2:ea:c5:71:2a:3f:
+                    eb:cf:e8:67:a6:de:1d:93:e8:98:8e:7d:65:ad:f0:
+                    fa:be:01:95:d3:e0:31:65:22:a3:97:73:55:4a:3f:
+                    bd:25:c3:3a:66:a7:37:04:4d:1f:37:5c:e0:ec:6f:
+                    ca:e1:1d:e1:42:5e:c9:1c:d5:12:fb:ba:09:90:72:
+                    a3:94:2b:0d:aa:a9:24:a7:59:f0:8d:91:63:31:83:
+                    e0:17:92:24:eb:a3:e9:8e:7e:58:4d:04:33:cd:97:
+                    2d:dd:78:3c:57:e8:a3:85:62:d8:43:f4:2d:06:2f:
+                    46:ee:d1:bd:5c:4c:83:38:b7:12:a5:68:f2:23:0c:
+                    e2:7a:fc:a0:91:e8:c6:59:f5:bf:4a:4d:ff:ba:28:
+                    67:d7:85:57:88:08:6d:39:32:03:a3:3f:d4:bb:e1:
+                    8d:d1:f7:7e:84:56:eb:c4:e6:4c:62:28:c4:50:2d:
+                    04:ee:67:f9:45:c5:48:e7:2d:d4:ad:40:68:e8:41:
+                    99:5d
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Subject Key Identifier: 
+                25:EE:54:2B:29:8C:6B:00:DC:1F:D4:0A:18:68:5C:AA:1F:06:6B:9B
+            X509v3 Authority Key Identifier: 
+                keyid:25:EE:54:2B:29:8C:6B:00:DC:1F:D4:0A:18:68:5C:AA:1F:06:6B:9B
+                DirName:/C=DE/ST=Berlin/O=Fraunhofer/OU=FOKUS/CN=BonFIRE-RootCA/emailAddress=thomas.guenther@fokus.fraunhofer.de
+                serial:88:A7:AE:AB:8E:4B:91:DC
+
+            X509v3 Basic Constraints: 
+                CA:TRUE
+    Signature Algorithm: sha1WithRSAEncryption
+        36:d8:37:0b:2c:cd:f1:96:81:73:92:58:aa:bf:e2:97:9b:f1:
+        d7:e6:54:dc:2e:63:74:28:8b:67:4c:d5:d2:0c:9d:45:ac:23:
+        ae:9a:c7:8c:59:03:58:19:b9:89:a9:b5:8b:e0:7b:fb:68:9a:
+        9a:69:74:93:57:33:84:63:2e:6c:cc:8c:64:17:48:97:5c:26:
+        39:ed:0f:c8:55:ba:9a:3b:7d:fb:ee:8b:a8:c0:2c:50:f4:b7:
+        43:b9:91:8a:f5:b9:b9:c0:e1:8b:fa:63:58:bd:91:ee:1b:84:
+        a8:cc:62:d3:f7:56:62:09:46:d9:ae:72:cf:8a:f4:a7:6e:36:
+        ab:6e:df:4c:41:b2:69:c2:64:67:0a:6d:66:bf:d2:ce:a9:f4:
+        f4:8c:34:d3:f8:02:0e:f2:fa:dc:f4:9e:1e:5d:04:a2:0c:26:
+        4f:45:87:93:16:88:14:b5:d1:fe:87:03:b1:6a:be:95:91:9b:
+        0b:dd:73:b0:bb:c4:bd:cf:d2:ef:a3:4a:c3:24:9b:87:70:54:
+        b4:f1:ac:54:72:1b:76:3d:09:d8:b4:40:cb:50:b5:7a:25:08:
+        8d:db:e3:41:24:b2:4b:74:a1:27:f0:3d:41:90:ca:b8:b0:0b:
+        18:94:6d:ff:25:67:b4:e4:4b:6a:80:48:48:c7:38:6f:6e:86:
+        58:43:0e:37
+-----BEGIN CERTIFICATE-----
+MIIEnjCCA4agAwIBAgIJAIinrquOS5HcMA0GCSqGSIb3DQEBBQUAMIGQMQswCQYD
+VQQGEwJERTEPMA0GA1UECBMGQmVybGluMRMwEQYDVQQKEwpGcmF1bmhvZmVyMQ4w
+DAYDVQQLEwVGT0tVUzEXMBUGA1UEAxMOQm9uRklSRS1Sb290Q0ExMjAwBgkqhkiG
+9w0BCQEWI3Rob21hcy5ndWVudGhlckBmb2t1cy5mcmF1bmhvZmVyLmRlMB4XDTEw
+MTIwOTA5Mzg1OFoXDTE1MTIwODA5Mzg1OFowgZAxCzAJBgNVBAYTAkRFMQ8wDQYD
+VQQIEwZCZXJsaW4xEzARBgNVBAoTCkZyYXVuaG9mZXIxDjAMBgNVBAsTBUZPS1VT
+MRcwFQYDVQQDEw5Cb25GSVJFLVJvb3RDQTEyMDAGCSqGSIb3DQEJARYjdGhvbWFz
+Lmd1ZW50aGVyQGZva3VzLmZyYXVuaG9mZXIuZGUwggEiMA0GCSqGSIb3DQEBAQUA
+A4IBDwAwggEKAoIBAQCsXSkXNuTr8fVsOssATUfKiFr5jDQ/yomHL09ePN1Zo1g7
+adFFwfnPwJGOLBwnFsjSj/02LhJslMJSnJMJNfO0MgKCKaLqxXEqP+vP6Gem3h2T
+6JiOfWWt8Pq+AZXT4DFlIqOXc1VKP70lwzpmpzcETR83XODsb8rhHeFCXskc1RL7
+ugmQcqOUKw2qqSSnWfCNkWMxg+AXkiTro+mOflhNBDPNly3deDxX6KOFYthD9C0G
+L0bu0b1cTIM4txKlaPIjDOJ6/KCR6MZZ9b9KTf+6KGfXhVeICG05MgOjP9S74Y3R
+936EVuvE5kxiKMRQLQTuZ/lFxUjnLdStQGjoQZldAgMBAAGjgfgwgfUwHQYDVR0O
+BBYEFCXuVCspjGsA3B/UChhoXKofBmubMIHFBgNVHSMEgb0wgbqAFCXuVCspjGsA
+3B/UChhoXKofBmuboYGWpIGTMIGQMQswCQYDVQQGEwJERTEPMA0GA1UECBMGQmVy
+bGluMRMwEQYDVQQKEwpGcmF1bmhvZmVyMQ4wDAYDVQQLEwVGT0tVUzEXMBUGA1UE
+AxMOQm9uRklSRS1Sb290Q0ExMjAwBgkqhkiG9w0BCQEWI3Rob21hcy5ndWVudGhl
+ckBmb2t1cy5mcmF1bmhvZmVyLmRlggkAiKeuq45LkdwwDAYDVR0TBAUwAwEB/zAN
+BgkqhkiG9w0BAQUFAAOCAQEANtg3CyzN8ZaBc5JYqr/il5vx1+ZU3C5jdCiLZ0zV
+0gydRawjrprHjFkDWBm5iam1i+B7+2iamml0k1czhGMubMyMZBdIl1wmOe0PyFW6
+mjt9++6LqMAsUPS3Q7mRivW5ucDhi/pjWL2R7huEqMxi0/dWYglG2a5yz4r0p242
+q27fTEGyacJkZwptZr/Szqn09Iw00/gCDvL63PSeHl0EogwmT0WHkxaIFLXR/ocD
+sWq+lZGbC91zsLvEvc/S76NKwySbh3BUtPGsVHIbdj0J2LRAy1C1eiUIjdvjQSSy
+S3ShJ/A9QZDKuLALGJRt/yVntORLaoBISMc4b26GWEMONw==
+-----END CERTIFICATE-----
+
