@@ -101,7 +101,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         "x509_base_subj" => "/C=FR/ST=Bretagne/L=Rennes/O=Inria/OU=Grid5000",
         "local_ca_pass" => "SomePassForAM3",
         "am_base_name"=> ENV["Authority_Name"] || "am3.grid5000.fr",
-        "am_staff_mail"=> ENV["Authority_Mail"] || "support-staff@.grid5000.fr",
+        "am_staff_mail"=> ENV["Authority_Mail"] || "support-staff@grid5000.fr",
       }
     #puppet.options = "--verbose --debug"
   end
