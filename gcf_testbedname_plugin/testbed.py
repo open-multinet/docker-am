@@ -30,6 +30,18 @@ import logging
 import gcf.geni.am.am3 as am3
 from gcf.sfa.trust.certificate import Certificate
 
+class Slice(object):
+    """calls to delegate.decode_urns expect to get back
+    a object on wich getURN() can be called. This class to implement
+    this in a very basic manner.
+    """
+
+    def __init__(self,urn_str):
+        self.urn=urn_str
+
+    def getURN(self):
+        return self.urn
+
 class MyTestbedDelegate(am3.ReferenceAggregateManager):
     CONFIG_LOCATIONS=["/etc/geni-tools-delegate/testbed.ini", 
                      "testbed.ini"]
@@ -129,7 +141,28 @@ class MyTestbedDelegate(am3.ReferenceAggregateManager):
                                     privileges)
         return self.successResult(True)
 
+    def decode_urns(self,urns,**kwargs):
+        """Several methods need to map URNs to slivers and/or deduce
+        a slice based on the slivers specified.
 
+        When called from AMMethodContext, kwargs will have 2 keys
+        (credentials and options), with the same values as the credentials
+        and options parameters of the AMv3 API entry points. This can be 
+        usefull for delegates derived from the ReferenceAggregateManager, 
+        but is not used in this reference implementation.
+
+        Returns a slice and a list of slivers.
+        """
+        # All delegate methods implementing AMv3 API are called in a context 
+        # (of class AMMethodContext that is created with a call to decode_urns
+        # when urns are passed as arguments to the call.
+        #
+        # When a slice is found from the urns, and slice_urn is not part of the arguments
+        # to the call, this sets slice_urn as part of the args to be used
+        # by the authorizer when taking decisions, with a call to getURN on the first item 
+        # returned by decode_urns
+        return super(MyTestbedDelegate, self).decode_urns(urns, **kwargs)
+        
 
     def getAggregateManagerId(self, certfile=None):
         if not hasattr(self, 'aggregate_manager_id'):
