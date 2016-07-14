@@ -1,0 +1,3 @@
+[submodule "geni-tools"]
+	path = geni-tools
+	url = https://github.com/GENI-NSF/geni-tools.git
