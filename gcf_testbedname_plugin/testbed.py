@@ -261,6 +261,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         #Get only resources with sliver_types required in the rspec
         sliver_types = []
         for node in etree.parse(StringIO(rspec)).getroot().getchildren():
+            if node.get("exclusive") == "true":
+                return self.errorResult(am3.AM_API.UNSUPPORTED, "Can't allocate an exclusive resource, not supported")
             for t in node.getchildren():
                 if t.get("name") not in sliver_types:
                     sliver_types.append(t.get("name"))
