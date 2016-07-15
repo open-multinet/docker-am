@@ -35,7 +35,7 @@ class DockerContainer(Resource):
     DEFAULT_SLIVER_TYPE="dockercontainer"
     
     def __init__(self, agg, host="localhost"):
-        super(DockerContainer, self).__init__(str(uuid.uuid4()), "dockercontainer")
+        super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
         self._agg = agg
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
         self.users=list()

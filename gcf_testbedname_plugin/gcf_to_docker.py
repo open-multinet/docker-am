@@ -50,9 +50,9 @@ class DockerManager():
         if ssh_port is None:
             ssh_port = reserveNextPort()
         uid = str(uuid.uuid4()) if id==None else id
-        if sliver_type=="dockercontainer":
+        if sliver_type=="docker-container":
             cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -t jessie_gcf_ssh 2> /dev/null"
-        elif sliver_type == "dockercontainer_100M":
+        elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -t jessie_gcf_ssh 2> /dev/null"
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
