@@ -85,7 +85,7 @@ class DockerContainer(Resource):
             services = etree.SubElement(manifest, "services")
             for login in self.getUsers():
                 auth=etree.SubElement(services, "login")
-                auth.set("authentification","ssh-keys")
+                auth.set("authentication","ssh-keys")
                 auth.set("hostname", self.host)
                 auth.set("port", str(self.getPort()))
                 auth.set("username", login)
