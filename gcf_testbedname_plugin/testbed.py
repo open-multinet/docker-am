@@ -52,6 +52,7 @@ import zlib
 import threading
 import time
 import gcf.geni.am.am3 as am3
+import pickle
 
 from StringIO import StringIO
 from lxml import etree
@@ -125,12 +126,24 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     def __init__(self, root_cert, urn_authority, url, **kwargs):
         super(ReferenceAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
         self._urn_authority = "IDN "+urn_authority #IDN docker.ilabt.iminds.be
-        self._agg = Aggregate()
+        
         # Init resources
         #self._agg.add_resources([DockerContainer(self._agg) for _ in range(5)])
-        self._agg.add_resources([DockerMaster(self._agg, 20)])
         ############
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
+        try:
+            s=open('agg.dat', 'r')
+            self._agg = pickle.load(s)
+            s.close()
+            s=open('slices.dat', 'r')
+            self._slices = pickle.load(s)
+            s.close()
+        except Exception as e:
+            print(str(e))
+            print("Load new instance")
+            self._agg = Aggregate()
+            self._agg.add_resources([DockerMaster(self._agg, 20)])
+            self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
     # The list of credentials are options - some single cred
@@ -358,6 +371,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if one_slice_overlaps:
                 template = "Slice %s already has slivers at requested time"
                 self.logger.error(template % (slice_urn))
+                for sliver in newslice.slivers():
+                    sliver.resource().deallocate()
                 return self.errorResult(am3.AM_API.ALREADY_EXISTS,
                                         template % (slice_urn))
         else:
@@ -380,6 +395,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                              sliver.resource().id, slice_urn, sliver.urn())
 
         manifest = self.manifest_rspec(slice_urn)
+        self.dumpState()
         result = dict(geni_rspec=manifest,
                       geni_slivers=[s.status() for s in newslice.slivers()])
         return self.successResult(result)
@@ -451,7 +467,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             sliver.setEndTime(expiration)
             sliver.setExpiration(expiration)
             sliver.setAllocationState(STATE_GENI_PROVISIONED)
-            sliver.setOperationalState(OPSTATE_GENI_NOT_READY)
+            sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
 
         # Configure user and ssh keys on nodes (dockercontainer)
 
@@ -467,8 +483,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                         sliver.resource().preprovision(urn.URN(urn=user['urn']).getName())
                         threading.Thread(target=thread_provisioning, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
                 else:
+                    sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
+                    sliver.setAllocationState(STATE_GENI_ALLOCATED)
                     return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
                 i+=1
+        self.dumpState()
         result = dict(geni_rspec=self.manifest_rspec(the_slice.urn, provision=True),
                       geni_slivers=[s.status() for s in slivers])
         return self.successResult(result)
@@ -552,6 +571,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 # This should have been caught above
                 msg = "Unsupported: action %s is not supported" % (action)
                 raise ApiErrorException(am3.AM_API.UNSUPPORTED, msg)
+        self.dumpState()
         return self.successResult([s.status(errors[s.urn()])
                                    for s in slivers])
 
@@ -678,6 +698,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 sliver.setEndTime(end_time)
 
         geni_slivers = [s.status() for s in slivers]
+        self.dumpState()
         return self.successResult(geni_slivers)
 
     def advert_resource(self, resource):
@@ -780,3 +801,12 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 self.logger.debug("Deleting empty slice %r", slyce.urn)
                 del self._slices[slyce.urn]
 
+    def dumpState(self):
+        s = open("agg.dat", "w")
+        pickle.dump(self._agg, s)
+        s.close()
+        s = open("slices.dat", "w")
+        pickle.dump(self._slices, s)
+        s.close()
+
+    
