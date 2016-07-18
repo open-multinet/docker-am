@@ -465,7 +465,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
                     for sliver in slivers:
                         sliver.resource().preprovision(urn.URN(urn=user['urn']).getName())
-                        threading.Thread(target=thread_provisioning, args=[sliver, urn.URN(urn=user['urn']).getName(), options['geni_users'][0]['keys']]).start()
+                        threading.Thread(target=thread_provisioning, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
                 else:
                     return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
                 i+=1
@@ -496,7 +496,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         ostates = []
         if action == 'geni_start':
             astates = [STATE_GENI_PROVISIONED]
-            ostates = [OPSTATE_GENI_NOT_READY]
+            ostates = [OPSTATE_GENI_NOT_READY, OPSTATE_GENI_READY]
         elif action == 'geni_restart':
             astates = [STATE_GENI_PROVISIONED]
             ostates = [OPSTATE_GENI_READY]
@@ -535,7 +535,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if (action == 'geni_start'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
-                    sliver.setOperationalState(OPSTATE_GENI_READY)
+                    pass
             elif (action == 'geni_restart'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
