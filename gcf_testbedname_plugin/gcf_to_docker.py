@@ -87,7 +87,7 @@ class DockerManager():
     def setupUser(self, id, username, ssh_keys):
         cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi'"
         subprocess.check_output(['bash', '-c', cmd_create_user])
-        cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+ssh_keys.pop(0)+"' > /home/"+username+"/.ssh/authorized_keys\""
+        cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\""
         subprocess.check_output(['bash', '-c', cmd_add_key])
         for key in ssh_keys:
             cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\""
