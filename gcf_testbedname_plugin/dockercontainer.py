@@ -51,8 +51,7 @@ class DockerContainer(Resource):
         self.users = list()
         self.ssh_port=22
         self.host = "localhost"
-        self._agg.deallocate(container=None, resources=[self])
-
+        
     def deallocate(self):
         self.available=True
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
@@ -103,3 +102,7 @@ class DockerContainer(Resource):
         etree.SubElement(r, "sliver_type").set("name", self.sliver_type)
         etree.SubElement(r, "available").set("now", resource_available)
         return r
+
+    def reset(self):
+        super(DockerContainer, self).reset()
+        self._agg.deallocate(container=None, resources=[self])

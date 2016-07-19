@@ -118,6 +118,9 @@ OPSTATE_GENI_READY = am3.OPSTATE_GENI_READY
 OPSTATE_GENI_READY_BUSY = am3.OPSTATE_GENI_READY_BUSY
 OPSTATE_GENI_FAILED = am3.OPSTATE_GENI_FAILED
 
+EXPIRE_LOCK = threading.Lock()
+DUMP_LOCK = threading.Lock()
+
 
 class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
@@ -126,11 +129,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     def __init__(self, root_cert, urn_authority, url, **kwargs):
         super(ReferenceAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
         self._urn_authority = "IDN "+urn_authority #IDN docker.ilabt.iminds.be
-        
-        # Init resources
-        #self._agg.add_resources([DockerContainer(self._agg) for _ in range(5)])
-        ############
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
+        thread_sliver_daemon = threading.Thread(target=self.expireSliversDaemon)
+        thread_sliver_daemon.daemon=True
+        thread_sliver_daemon.start()
         try:
             s=open('agg.dat', 'r')
             self._agg = pickle.load(s)
@@ -139,8 +141,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             self._slices = pickle.load(s)
             s.close()
         except Exception as e:
-            print(str(e))
-            print("Load new instance")
+            self.logger.info(str(e))
+            self.logger.info("Load new instance")
             self._agg = Aggregate()
             self._agg.add_resources([DockerMaster(self._agg, 20)])
             self.dumpState()
@@ -782,6 +784,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         should be run by a daemon, but until then, it is called at the
         beginning of all methods.
         """
+        if EXPIRE_LOCK.locked():
+            return None
+        EXPIRE_LOCK.acquire()
         expired = list()
         now = datetime.datetime.utcnow()
         for slyce in self._slices.values():
@@ -792,21 +797,36 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     self.logger.debug('Expring sliver %s (expiration = %r) at %r',
                                       sliver.urn(), sliver.expiration(), now)
                     expired.append(sliver)
-        self.logger.info('Expiring %d slivers', len(expired))
+        dump=False
+        if len(expired)>0:
+            self.logger.info('Expiring %d slivers', len(expired))
+            dump=True
         for sliver in expired:
             slyce = sliver.slice()
             slyce.delete_sliver(sliver)
             # If slice is now empty, delete it.
-            if not slyce.slivers():
+            if len(slyce.slivers()) == 0:
                 self.logger.debug("Deleting empty slice %r", slyce.urn)
                 del self._slices[slyce.urn]
-
+        EXPIRE_LOCK.release()
+        if dump: #If something has changed, save data
+            self.dumpState()
+            
     def dumpState(self):
+        DUMP_LOCK.acquire()
         s = open("agg.dat", "w")
         pickle.dump(self._agg, s)
         s.close()
         s = open("slices.dat", "w")
         pickle.dump(self._slices, s)
         s.close()
+        DUMP_LOCK.release()
+
+    def expireSliversDaemon(self):
+        while True:
+            time.sleep(300)
+            self.expire_slivers()
+            
+            
 
     
