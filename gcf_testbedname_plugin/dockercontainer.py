@@ -72,6 +72,12 @@ class DockerContainer(Resource):
         self.DockerManager.startNew(self.id, self.sliver_type, self.ssh_port)
         return self.DockerManager.setupContainer(self.id, user, key)
 
+    def start(self):
+        self.DockerManager.startNew(self.id, self.sliver_type, self.ssh_port)
+
+    def setup(self, user, key):
+        self.DockerManager.setupContainer(self.id, user, key)
+
     def updateUser(self, user, keys):
         if user not in self.users:
             self.users.append(user)
@@ -88,6 +94,13 @@ class DockerContainer(Resource):
                 auth.set("hostname", self.host)
                 auth.set("port", str(self.getPort()))
                 auth.set("username", login)
+                ipv6=self.DockerManager.getIpV6(self.id)
+                if ipv6 is not None:
+                    auth=etree.SubElement(services, "login")
+                    auth.set("authentication","ssh-keys")
+                    auth.set("hostname", str(ipv6))
+                    auth.set("port", "22")
+                    auth.set("username", login)
             return manifest
             
     def genAdvertNode(self, _urn_authority, _my_urn):

@@ -4,6 +4,7 @@ import os
 import uuid
 import threading
 import sys
+import json
 
 class DockerManager():
     
@@ -120,3 +121,8 @@ class DockerManager():
             sys.stderr.write('Docker is not installed OR this user is not in the docker group OR the docker daemon is not started\n')
             exit(1)
             
+    def getIpV6(self, id):
+        cmd = "docker inspect "+id
+        output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+        output = json.loads(output)
+        return output[0]['NetworkSettings']['GlobalIPv6Address']
