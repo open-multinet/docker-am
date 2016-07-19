@@ -42,6 +42,8 @@ class DockerContainer(Resource):
         self.ssh_port=22
         self.host = host
         self.DockerManager = DockerManager()
+        self.mac = self.DockerManager.randomMacAddress()
+        self.ipv6 = self.DockerManager.computeIpV6(self.mac)
         self.DockerManager.checkDocker()
         
 
@@ -58,7 +60,6 @@ class DockerContainer(Resource):
         self._agg.deallocate(container=None, resources=[self])
 
     def getPort(self):
-        #return DockerManager.getPort(self.id)
         return self.ssh_port
 
     def getUsers(self):
@@ -69,14 +70,8 @@ class DockerContainer(Resource):
         self.ssh_port = self.DockerManager.reserveNextPort()
 
     def provision(self, user, key):
-        self.DockerManager.startNew(self.id, self.sliver_type, self.ssh_port)
+        self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac)
         return self.DockerManager.setupContainer(self.id, user, key)
-
-    def start(self):
-        self.DockerManager.startNew(self.id, self.sliver_type, self.ssh_port)
-
-    def setup(self, user, key):
-        self.DockerManager.setupContainer(self.id, user, key)
 
     def updateUser(self, user, keys):
         if user not in self.users:
@@ -94,11 +89,10 @@ class DockerContainer(Resource):
                 auth.set("hostname", self.host)
                 auth.set("port", str(self.getPort()))
                 auth.set("username", login)
-                ipv6=self.DockerManager.getIpV6(self.id)
-                if ipv6 is not None:
+                if self.ipv6 is not None:
                     auth=etree.SubElement(services, "login")
                     auth.set("authentication","ssh-keys")
-                    auth.set("hostname", str(ipv6))
+                    auth.set("hostname", str(self.ipv6))
                     auth.set("port", "22")
                     auth.set("username", login)
             return manifest

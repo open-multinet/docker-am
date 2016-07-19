@@ -5,8 +5,11 @@ import uuid
 import threading
 import sys
 import json
+import random
 
 class DockerManager():
+
+    FIXED_CIDR="2001:06a8:1d80:0601::"
     
     START_EXPOSING_PORT=12000
     locked_port = list()
@@ -47,12 +50,12 @@ class DockerManager():
         DockerManager.lock.release()
         return port
 
-    def startNew(self, id=None, sliver_type=None, ssh_port=None):
+    def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None):
         if ssh_port is None:
             ssh_port = reserveNextPort()
         uid = str(uuid.uuid4()) if id==None else id
         if sliver_type=="docker-container":
-            cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -t jessie_gcf_ssh 2> /dev/null"
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -t jessie_gcf_ssh 2> /dev/null"
         elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -t jessie_gcf_ssh 2> /dev/null"
         try:
@@ -126,3 +129,16 @@ class DockerManager():
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         output = json.loads(output)
         return output[0]['NetworkSettings']['GlobalIPv6Address']
+
+    def computeIpV6(self, mac):
+        ipv6 = self.FIXED_CIDR
+        parts=mac.split(':')
+        for i in range(0, len(parts), 2):
+            ipv6 += str(parts[i])+str(parts[i+1])+":"
+        ipv6 = ipv6[:-1]
+        return ipv6
+
+    """Returns a completely random Mac Address"""
+    def randomMacAddress(self): 
+        mac = [0x02, 0x42, 0xac, 0x11, random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
+        return ':'.join(map(lambda x: "%02x" % x, mac))

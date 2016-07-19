@@ -473,11 +473,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         # Configure user and ssh keys on nodes (dockercontainer)
 
-        def thread_start():
-            sliver.resource().start()
-
-        def thread_setup(sliver, user, keys):
-            sliver.resource().setup(user, keys)
+        def thread_provisionning(sliver, user, keys):
+            sliver.resource().provision(user, keys)
             sliver.setOperationalState(OPSTATE_GENI_READY)
             
         if 'geni_users' in options:
@@ -486,13 +483,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
                     for sliver in slivers:
                         sliver.resource().preprovision(urn.URN(urn=user['urn']).getName())
-                        threads = list()
-                        threads.append(threading.Thread(target=thread_start))
-                        threads[-1].start()
-                    for t in threads:
-                        t.join()
-                    for sliver in slivers:
-                        threading.Thread(target=thread_setup, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
+                        threading.Thread(target=thread_provisionning, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
                 else:
                     sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
                     sliver.setAllocationState(STATE_GENI_ALLOCATED)
