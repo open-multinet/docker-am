@@ -517,7 +517,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         ostates = []
         if action == 'geni_start':
             astates = [STATE_GENI_PROVISIONED]
-            ostates = [OPSTATE_GENI_NOT_READY, OPSTATE_GENI_READY]
+            ostates = [OPSTATE_GENI_NOT_READY, OPSTATE_GENI_READY, OPSTATE_GENI_CONFIGURING]
         elif action == 'geni_restart':
             astates = [STATE_GENI_PROVISIONED]
             ostates = [OPSTATE_GENI_READY]
