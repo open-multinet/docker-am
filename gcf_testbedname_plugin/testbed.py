@@ -474,6 +474,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         def thread_provisionning(sliver, user, keys):
             sliver.resource().provision(user, keys)
+            sliver.resource().checkSshConnection()
             sliver.setOperationalState(OPSTATE_GENI_READY)
             
         if 'geni_users' in options:

@@ -28,7 +28,7 @@ from gcf_to_docker import DockerManager
 from gcf.geni.am.resource import Resource
 from lxml import etree
 import uuid
-
+import subprocess
 
 class DockerContainer(Resource):
 
@@ -52,7 +52,6 @@ class DockerContainer(Resource):
         self.DockerManager.removeContainer(self.id)
         self.users = list()
         self.ssh_port=22
-        self.host = "localhost"
         
     def deallocate(self):
         self.available=True
@@ -71,7 +70,7 @@ class DockerContainer(Resource):
 
     def provision(self, user, key):
         self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac)
-        return self.DockerManager.setupContainer(self.id, user, key)
+        self.DockerManager.setupContainer(self.id, user, key)
 
     def updateUser(self, user, keys):
         if user not in self.users:
@@ -113,3 +112,11 @@ class DockerContainer(Resource):
     def reset(self):
         super(DockerContainer, self).reset()
         self._agg.deallocate(container=None, resources=[self])
+
+    def checkSshConnection(self):
+        try:
+            cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@"+self.host+" -p "+self.ssh_port+" 'test'"
+            subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+        except:
+            pass
+        
