@@ -134,11 +134,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         thread_sliver_daemon.daemon=True
         thread_sliver_daemon.start()
         try:
-            s=open('agg.dat', 'r')
-            self._agg = pickle.load(s)
-            s.close()
-            s=open('slices.dat', 'r')
-            self._slices = pickle.load(s)
+            s=open('data.dat', 'rb')
+            p = pickle.Unpickler(s)
+            self._agg = p.load()
+            self._slices = p.load()
             s.close()
         except Exception as e:
             self.logger.info(str(e))
@@ -645,6 +644,39 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                      geni_slivers=[s.status() for s in slivers])
         return self.successResult(value)
 
+    def Delete(self, urns, credentials, options):
+        """Stop and completely delete the named slivers and/or slice."""
+        self.logger.info('Delete(%r)' % (urns))
+        self.expire_slivers()
+
+        the_slice, slivers = self.decode_urns(urns)
+        privileges = (DELETESLIVERPRIV,)
+
+        self.getVerifiedCredentials(the_slice.urn, credentials, options, privileges)
+
+        # Grab the user_urn
+        user_urn = gid.GID(string=options['geni_true_caller_cert']).get_urn()
+
+        # If we get here, the credentials give the caller
+        # all needed privileges to act on the given target.
+        if the_slice.isShutdown():
+            self.logger.info("Slice %s not deleted because it is shutdown",
+                             the_slice.urn)
+            return self.errorResult(AM_API.UNAVAILABLE,
+                                    ("Unavailable: Slice %s is unavailable."
+                                     % (the_slice.urn)))
+        resources = [sliver.resource() for sliver in slivers]
+        self._agg.deallocate(the_slice.urn, resources)
+        self._agg.deallocate(user_urn, resources)
+        for sliver in slivers:
+            slyce = sliver.slice()
+            slyce.delete_sliver(sliver)
+            # If slice is now empty, delete it.
+            if not slyce.slivers():
+                self.logger.debug("Deleting empty slice %r", slyce.urn)
+                del self._slices[slyce.urn]
+        self.dumpState()
+        return self.successResult([s.status() for s in slivers])
 
 
     def Renew(self, urns, credentials, expiration_time, options):
@@ -808,17 +840,18 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if len(slyce.slivers()) == 0:
                 self.logger.debug("Deleting empty slice %r", slyce.urn)
                 del self._slices[slyce.urn]
-        EXPIRE_LOCK.release()
         if dump: #If something has changed, save data
             self.dumpState()
+        EXPIRE_LOCK.release()
+        
             
     def dumpState(self):
         DUMP_LOCK.acquire()
-        s = open("agg.dat", "w")
-        pickle.dump(self._agg, s)
-        s.close()
-        s = open("slices.dat", "w")
-        pickle.dump(self._slices, s)
+        open("data.dat", 'w').close()
+        s = open("data.dat", "wb")
+        p = pickle.Pickler(s)
+        p.dump(self._agg)
+        p.dump(self._slices)
         s.close()
         DUMP_LOCK.release()
 
