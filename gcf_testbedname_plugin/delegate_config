@@ -1,0 +1,17 @@
+[dockermaster_1]
+#Maximum of container to assign
+max_containers=20
+
+#a /64 or /80 prefix
+#If empty the IPV6 support will not be enable
+ipv6_prefix=2001:06a8:1d80:0601::
+
+#IPV4 host returned by the manifest. Also used by the AM to launch command on the AM
+#If empty, means the dockermaster is on the same host than the AM.
+#If empty, http://ip.42.pl is used to get the public ipv4
+host=
+
+#Docker uses port forwarding to allow users to join containers with SSH. This is the first port used.
+#Default is 12000. For example the first container will be reachable with : ssh login@host -p 12000, the second 12001, ...
+#The AM uses the first port available, that means if the first container is deleted, the next provisionned will use 12000
+starting_ipv4_port=12000

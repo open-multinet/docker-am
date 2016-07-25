@@ -34,16 +34,20 @@ class DockerContainer(Resource):
 
     DEFAULT_SLIVER_TYPE="dockercontainer"
     
-    def __init__(self, agg, host="localhost"):
+    def __init__(self, agg, starting_ipv4_port, host="localhost", ipv6_prefix=None):
         super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
         self._agg = agg
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
         self.users=list()
         self.ssh_port=22
         self.host = host
+        self.starting_ipv4_port=starting_ipv4_port
         self.DockerManager = DockerManager()
         self.mac = self.DockerManager.randomMacAddress()
-        self.ipv6 = self.DockerManager.computeIpV6(self.mac)
+        if ipv6_prefix is not None and len(ipv6_prefix)>0:
+            self.ipv6 = self.DockerManager.computeIpV6(ipv6_prefix, self.mac)
+        else:
+            self.ipv6=None
         self.DockerManager.checkDocker()
         
 
@@ -66,7 +70,7 @@ class DockerContainer(Resource):
 
     def preprovision(self, user):
         self.users.append(user)
-        self.ssh_port = self.DockerManager.reserveNextPort()
+        self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
     def provision(self, user, key):
         self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac)

@@ -49,6 +49,7 @@ import uuid
 import xml.dom.minidom as minidom
 import xmlrpclib
 import zlib
+import ConfigParser
 import threading
 import time
 import gcf.geni.am.am3 as am3
@@ -143,7 +144,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             self.logger.info(str(e))
             self.logger.info("Load new instance")
             self._agg = Aggregate()
-            self._agg.add_resources([DockerMaster(self._agg, 20)])
+            config = ConfigParser.SafeConfigParser()
+            config.read(os.path.dirname(os.path.abspath(__file__))+"/delegate_config")
+            for r in config.sections():
+                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "host"), config.get(r, "ipv6_prefix"), config.get(r, "starting_ipv4_port"))])
+            #self._agg.add_resources([DockerMaster(self._agg, 20)])
             self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 

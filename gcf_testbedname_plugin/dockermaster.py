@@ -31,13 +31,15 @@ import uuid
 from urllib2 import urlopen
 
 class DockerMaster(Resource):
-    def __init__(self, agg, max_slots, host=None):
+    def __init__(self, agg, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None):
         super(DockerMaster, self).__init__(str(uuid.uuid4()), "dockermaster")
-        if host is None:
+        if starting_ipv4_port is None or len(starting_ipv4_port)==0:
+            starting_ipv4_port=12000 #Default
+        if host is None or len(host)==0:
             host = urlopen('http://ip.42.pl/raw').read()
-            self.pool = [DockerContainer(self,host) for _ in range(max_slots)]
+            self.pool = [DockerContainer(self, starting_ipv4_port, host, ipv6_prefix) for _ in range(max_slots)]
         else:
-            self.pool = [DockerContainer(self) for _ in range(max_slots)]
+            self.pool = [DockerContainer(self, starting_ipv4_port, host, ipv6_prefix) for _ in range(max_slots)]
         self._agg = agg
 
     def deallocate(self, container, resources):

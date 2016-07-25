@@ -11,7 +11,6 @@ class DockerManager():
 
     FIXED_CIDR="2001:06a8:1d80:0601::"
     
-    START_EXPOSING_PORT=12000
     locked_port = list()
     lock = threading.Lock()
 
@@ -21,14 +20,14 @@ class DockerManager():
         output=output.strip().decode('utf-8')
         return output
 
-    def getNextPort(self):
+    def getNextPort(self, starting_port):
         if self.numberRunningContainer() == 0:
-            return START_EXPOSING_PORT
+            return starting_port
         else:
             cmd = "docker ps --format {{.Ports}} | sort"
             output = subprocess.check_output(['bash', '-c', cmd])
             output=output.strip().decode('utf-8')
-            expected = 12000
+            expected = starting_port
             for line in output.split('\n'):
                 m = re.search(':([0-9]*)->', line)
                 if m!=None:
@@ -43,9 +42,9 @@ class DockerManager():
             expected += 1
         return expected
 
-    def reserveNextPort(self):
+    def reserveNextPort(self, starting_port):
         DockerManager.lock.acquire()
-        port = self.getNextPort()
+        port = self.getNextPort(starting_port)
         DockerManager.locked_port.append(port)
         DockerManager.lock.release()
         return port
@@ -130,8 +129,8 @@ class DockerManager():
         output = json.loads(output)
         return output[0]['NetworkSettings']['GlobalIPv6Address']
 
-    def computeIpV6(self, mac):
-        ipv6 = self.FIXED_CIDR
+    def computeIpV6(self, prefix, mac):
+        ipv6 = prefix
         parts=mac.split(':')
         for i in range(0, len(parts), 2):
             ipv6 += str(parts[i])+str(parts[i+1])+":"
