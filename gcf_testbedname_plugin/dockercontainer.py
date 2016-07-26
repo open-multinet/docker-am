@@ -81,25 +81,6 @@ class DockerContainer(Resource):
             self.users.append(user)
         self.DockerManager.setupUser(self.id, user, keys)
 
-    def manifestDetails(self, manifest):
-        if len(self.getUsers())==0:
-            return manifest
-        else:
-            services = etree.SubElement(manifest, "services")
-            for login in self.getUsers():
-                auth=etree.SubElement(services, "login")
-                auth.set("authentication","ssh-keys")
-                auth.set("hostname", self.host)
-                auth.set("port", str(self.getPort()))
-                auth.set("username", login)
-                if self.ipv6 is not None:
-                    auth=etree.SubElement(services, "login")
-                    auth.set("authentication","ssh-keys")
-                    auth.set("hostname", str(self.ipv6))
-                    auth.set("port", "22")
-                    auth.set("username", login)
-            return manifest
-    
     def manifestAuth(self):
         if len(self.getUsers())==0:
             return []
