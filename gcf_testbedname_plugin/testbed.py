@@ -122,7 +122,6 @@ OPSTATE_GENI_FAILED = am3.OPSTATE_GENI_FAILED
 EXPIRE_LOCK = threading.Lock()
 DUMP_LOCK = threading.Lock()
 
-
 class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
     # root_cert is a single cert or dir of multiple certs
@@ -382,7 +381,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 return self.errorResult(am3.AM_API.ALREADY_EXISTS,
                                         template % (slice_urn))
         else:
-            newslice = am3.Slice(slice_urn)
+            newslice = Slice(slice_urn)
 
         for resource in resources:
             sliver = newslice.add_resource(resource)
@@ -392,6 +391,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             sliver.setAllocationState(STATE_GENI_ALLOCATED)
         self._agg.allocate(slice_urn, newslice.resources())
         self._agg.allocate(user_urn, newslice.resources())
+        newslice.request_manifest = rspec
         self._slices[slice_urn] = newslice
 
         # Log the allocation
@@ -632,10 +632,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                                     'Bad Version: requested RSpec version %s is not a valid option.' % (rspec_version))
         self.logger.info("Describe requested RSpec %s (%s)", rspec_type, rspec_version)
 
-        manifest_body = self.manifest_header()
-        for sliver in slivers:
-            manifest_body = self.manifest_sliver(sliver, manifest_body, provision=True)
-        manifest = etree.tostring(manifest_body, pretty_print=True, xml_declaration=True, encoding='utf-8')
+        manifest = self.manifest_rspec(the_slice.getURN(), provision=True)
         self.logger.debug("Result is now \"%s\"", manifest)
         # Optionally compress the manifest
         #A DECOMMENTER
@@ -776,29 +773,27 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         etree.SubElement(action, "description").text = "Power down or stop the node."
         return adv_header
 
-    def manifest_header(self):
-        manifest_header = etree.Element("rspec", nsmap={None : "http://www.geni.net/resources/rspec/3", "xsi" : "http://www.w3.org/2001/XMLSchema-instance"}, attrib={"{http://www.w3.org/2001/XMLSchema-instance}schemaLocation" : "http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/manifest.xsd"})
-        manifest_header.set("type", "manifest")
-        return manifest_header
-
-    def manifest_sliver(self, sliver, manifest, provision=False):
-        s = etree.SubElement(manifest, "node")
-        s.set("client_id", sliver.resource().external_id)
-        s.set("component_id", sliver.resource().urn(self._urn_authority))
-        s.set("component_manager_id", self._my_urn)
-        s.set("sliver_id", sliver.urn())
-        if provision:
-            s=sliver.resource().manifestDetails(s)            
-        return manifest
-    
-
-    def manifest_slice(self, slice_urn, manifest, provision=False):
-        for sliver in self._slices[slice_urn].slivers():
-            manifest = self.manifest_sliver(sliver, manifest, provision)
-        return manifest
-
     def manifest_rspec(self, slice_urn, provision=False):
-        return etree.tostring(self.manifest_slice(slice_urn, self.manifest_header(), provision), pretty_print=True, xml_declaration=True, encoding='utf-8')
+        rspec = etree.parse(StringIO(self._slices[slice_urn].request_manifest))
+        for node in rspec.getroot().getchildren():
+            for s in self._slices[slice_urn].slivers():
+                if node.get("client_id") == s.resource().external_id and node.get("component_manager_id") == self._my_urn:
+                    node.set("component_id", s.resource().urn(self._urn_authority))
+                    node.set("sliver_id", s.urn())
+                    if provision:
+                        print("TEST")
+                        services = None
+                        for c in node.getchildren():
+                            if c.tag == "services":
+                                services = c
+                                break
+                        if services is None:
+                            services = etree.Element("services")
+                        services.extend(s.resource().manifestAuth())
+                        node.append(services)
+        return etree.tostring(rspec, pretty_print=True, xml_declaration=True, encoding='utf-8')
+            
+        
 
     def resources(self, available=None, sliver_types=None):
         """Get the list of managed resources. If available is not None,
@@ -865,7 +860,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         while True:
             time.sleep(300)
             self.expire_slivers()
-            
-            
-
     
+class Slice(am3.Slice):
+    def __init__(self, urn):
+        super(Slice,self).__init__(urn)
+        self.request_manifest = None

@@ -99,6 +99,28 @@ class DockerContainer(Resource):
                     auth.set("port", "22")
                     auth.set("username", login)
             return manifest
+    
+    def manifestAuth(self):
+        if len(self.getUsers())==0:
+            return []
+        else:
+            ret = []
+            for login in self.getUsers():
+                auth=etree.Element("login")
+                auth.set("authentication","ssh-keys")
+                auth.set("hostname", self.host)
+                auth.set("port", str(self.getPort()))
+                auth.set("username", login)
+                ret.append(auth)
+                if self.ipv6 is not None:
+                    auth=etree.Element("login")
+                    auth.set("authentication","ssh-keys")
+                    auth.set("hostname", str(self.ipv6))
+                    auth.set("port", "22")
+                    auth.set("username", login)
+                    ret.append(auth)
+            return ret
+
             
     def genAdvertNode(self, _urn_authority, _my_urn):
         r = etree.Element("node")
