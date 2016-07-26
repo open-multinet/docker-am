@@ -79,7 +79,7 @@ Then restart your docker daemon : ```systemctl restart docker.service```
 Run :
 
 ```
-python bootstrap-geni-am/geni-tools/src/gen-certs.py --am
+python bootstrap-geni-am/geni-tools/src/gen-certs.py -c gcf_testbedname_plugin/gcf_config --notAll --am
 ```
 
 File will be placed where specified in gcf_config (keyfile and certfile)
