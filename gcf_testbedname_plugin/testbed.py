@@ -146,7 +146,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             config = ConfigParser.SafeConfigParser()
             config.read(os.path.dirname(os.path.abspath(__file__))+"/delegate_config")
             for r in config.sections():
-                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "host"), config.get(r, "ipv6_prefix"), config.get(r, "starting_ipv4_port"))])
+                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")))])
             #self._agg.add_resources([DockerMaster(self._agg, 20)])
             self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
