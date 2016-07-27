@@ -42,6 +42,7 @@ class DockerContainer(Resource):
         self.ssh_port=22
         self.host = host
         self.starting_ipv4_port=starting_ipv4_port
+        self.image = None
         self.DockerManager = DockerManager()
         self.mac = self.DockerManager.randomMacAddress()
         if ipv6_prefix is not None and len(ipv6_prefix)>0:
@@ -69,11 +70,16 @@ class DockerContainer(Resource):
         return self.users
 
     def preprovision(self, user):
-        self.users.append(user)
-        self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
+        if user not in self.users:
+            self.users.append(user)
+        if not self.DockerManager.isContainerUp(self.id):
+            self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
     def provision(self, user, key):
-        self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac)
+        if self.DockerManager.isContainerUp(self.id):
+            self.DockerManager.removeContainer(self.id)
+        print self.ssh_port
+        self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
         self.DockerManager.setupContainer(self.id, user, key)
 
     def updateUser(self, user, keys):
@@ -119,6 +125,7 @@ class DockerContainer(Resource):
     def reset(self):
         super(DockerContainer, self).reset()
         self._agg.deallocate(container=None, resources=[self])
+        self.image = None
 
     def checkSshConnection(self):
         try:

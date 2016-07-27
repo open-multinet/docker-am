@@ -282,10 +282,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if node.get("exclusive") == "true":
                 return self.errorResult(am3.AM_API.UNSUPPORTED, "Can't allocate an exclusive resource, not supported")
             for t in node.getchildren():
-                if t.get("name") not in sliver_types:
+                if "sliver_type" in t.tag and t.get("name") not in sliver_types:
                     sliver_types.append(t.get("name"))
         available = self.resources(available=True, sliver_types=sliver_types)
-
         # Note: This only handles unbound nodes. Any attempt by the client
         # to specify a node is ignored.
         unbound = list()
@@ -297,7 +296,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         for elem in unbound:
             client_id = elem.getAttribute('client_id')
             sliver_type = elem.getElementsByTagName('sliver_type')[0]
-            if sliver_type != "": sliver_type = sliver_type.getAttribute('name')
+            image = None
+            if sliver_type != "":
+                if len(sliver_type.getElementsByTagName("disk_image")) == 1:
+                    image = sliver_type.getElementsByTagName("disk_image")[0].getAttribute("name")
+                sliver_type = sliver_type.getAttribute('name')
             component_id = elem.getAttribute('component_id')
             if component_id == "": component_id=None
             resource = None
@@ -323,6 +326,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             resource.external_id = client_id
             resource.available = False
             resource.sliver_type=sliver_type
+            resource.image=image
             resources.append(resource)
 
         # determine max expiration time from credentials
@@ -385,6 +389,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         for resource in resources:
             sliver = newslice.add_resource(resource)
+            resource.image = slice_urn+"::"+resource.image
             sliver.setExpiration(expiration)
             sliver.setStartTime(start_time)
             sliver.setEndTime(end_time)
@@ -781,7 +786,6 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     node.set("component_id", s.resource().urn(self._urn_authority))
                     node.set("sliver_id", s.urn())
                     if provision:
-                        print("TEST")
                         services = None
                         for c in node.getchildren():
                             if c.tag == "services":
@@ -806,9 +810,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         if sliver_types is not None:
             for r in list(result): #Avoid loop troubles due to delete
                 types = r.genAdvertNode("", "").xpath('sliver_type')
-                found = None
+                found = False
                 for t in types:
-                    if t.get("name") in sliver_types : found = True
+                    if t.get("name") in sliver_types :
+                        found = True
                 if not found: result.remove(r)
         return result
 

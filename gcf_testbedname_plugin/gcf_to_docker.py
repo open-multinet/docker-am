@@ -9,10 +9,9 @@ import random
 
 class DockerManager():
 
-    FIXED_CIDR="2001:06a8:1d80:0601::"
-    
     locked_port = list()
     lock = threading.Lock()
+    building = dict()
 
     def numberRunningContainer(self):
         cmd = "docker ps | grep -v '^CONTAINER' | wc -l"
@@ -49,12 +48,17 @@ class DockerManager():
         DockerManager.lock.release()
         return port
 
-    def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None):
+    #image : Specific image to install, could be URL to a DockerFile or a zip or just the name from Docker Hub (eg debian:jessie). Always starts with "username::" (replace username)
+    def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None, image=None):
         if ssh_port is None:
             ssh_port = reserveNextPort()
         uid = str(uuid.uuid4()) if id==None else id
+        imageName = "jessie_gcf_ssh" #Default
+        if image is not None:
+            imageName = image.split("::")[1]
+            self.processImage(image)
         if sliver_type=="docker-container":
-            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -t jessie_gcf_ssh 2> /dev/null"
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -t "+imageName+""# 2> /dev/null"
         elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -t jessie_gcf_ssh 2> /dev/null"
         try:
@@ -63,7 +67,8 @@ class DockerManager():
             build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
             subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
-        DockerManager.locked_port.remove(ssh_port)
+        if ssh_port in DockerManager.locked_port:
+            DockerManager.locked_port.remove(ssh_port)
         return uid
 
     def stopContainer(self, id):
@@ -82,6 +87,14 @@ class DockerManager():
         except Exception as e:
             return False
 
+    def isContainerUp(self, id):
+        cmd = "docker inspect "+id
+        try:
+            subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+            return True
+        except subprocess.CalledProcessError:
+            return False
+        
     def resetContainer(self, id):
         stopContainer(id)
         removeContainer(id)
@@ -141,3 +154,35 @@ class DockerManager():
     def randomMacAddress(self): 
         mac = [0x02, 0x42, 0xac, 0x11, random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
+
+    def buildSshImage(self, name):
+        try:
+            cmd = "mktemp"
+            tmpfile = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            cmd = "echo 'FROM " +name+"' > "+tmpfile
+            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            cmd = "cat "+os.path.dirname(os.path.abspath(__file__))+"/Dockerfile_template >> "+tmpfile
+            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            cmd = "docker build -t "+name+" --force-rm -f "+tmpfile+" /tmp"
+            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            cmd = "rm -f "+tmpfile
+            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            return True
+        except subprocess.CalledProcessError, e:
+            print(str(e))
+            return e #TODO if build fail set the status error
+
+    def processImage(self, image):
+        tmp = image.split("::")
+        user = tmp[0]
+        imageName = tmp[1]
+        #Check if image exists
+        cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+imageName
+        try:
+            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+        except subprocess.CalledProcessError:
+            if DockerManager.building.get(image, None) is None:
+                DockerManager.building[image] = threading.Lock()
+            DockerManager.building[image].acquire()
+            self.buildSshImage(imageName)
+            DockerManager.building[image].release()
