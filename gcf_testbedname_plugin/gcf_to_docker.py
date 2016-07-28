@@ -6,6 +6,11 @@ import threading
 import sys
 import json
 import random
+import tempfile
+import hashlib
+import zipfile
+from urllib2 import urlopen, URLError, HTTPError
+
 
 class DockerManager():
 
@@ -55,10 +60,9 @@ class DockerManager():
         uid = str(uuid.uuid4()) if id==None else id
         imageName = "jessie_gcf_ssh" #Default
         if image is not None:
-            imageName = image.split("::")[1]
-            self.processImage(image)
+            imageName=self.processImage(image)
         if sliver_type=="docker-container":
-            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -t "+imageName+""# 2> /dev/null"
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -P -t "+imageName+""# 2> /dev/null"
         elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -t jessie_gcf_ssh 2> /dev/null"
         try:
@@ -170,19 +174,87 @@ class DockerManager():
             return True
         except subprocess.CalledProcessError, e:
             print(str(e))
-            return e #TODO if build fail set the status error
+            return False #TODO if build fail set the status error
+
 
     def processImage(self, image):
-        tmp = image.split("::")
-        user = tmp[0]
-        imageName = tmp[1]
-        #Check if image exists
-        cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+imageName
+        fullName = image.split("::")
+        user = fullName[0]
+        imageName = fullName[1]
+        if imageName.startswith("http://") or imageName.startswith("https://"):
+            image = hashlib.sha1(image).hexdigest()
+            cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+image
+            try:
+                subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            except subprocess.CalledProcessError: #Image doesn't exists
+                self.buildExternalImage(imageName, image)
+            return image
+        else: #Docker hub image
+            #Check if image exists
+            cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+imageName
+            try:
+                out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+            except subprocess.CalledProcessError:
+                if DockerManager.building.get(image, None) is None:
+                    DockerManager.building[image] = threading.Lock()
+                DockerManager.building[image].acquire()
+                self.buildSshImage(imageName)
+                DockerManager.building[image].release()
+            return imageName
+
+    def buildExternalImage(self, url, fullName):
+        tmpdir = tempfile.mkdtemp()
+        self.dlfile(url, tmpdir)
+        if os.path.basename(url) == "Dockerfile":
+            pass
+        elif os.path.basename(url).split(".")[-1] == "zip":
+            zipfile.ZipFile(tmpdir+"/"+os.path.basename(url)).extractall(tmpdir)
+            if len(os.listdir(tmpdir))==2 and "Dockerfile" not in os.listdir(tmpdir):
+                cmd = "mv "+tmpdir+"/*/* "+tmpdir
+                subprocess.check_output(['bash', '-c', cmd])
+        elif os.path.basename(url).split(".")[-1] == "tar":
+            pass #TODO
+        else:
+            return "Error : Unsupported URL"
+        #Fix CMD to start SSH daemon and the original command
+        cmd = ""
+        for line in open(tmpdir+"/Dockerfile"):
+            if line.startswith("CMD "):
+                cmd = line.strip()[4:]
+        if len(cmd) > 0:
+            if cmd.startswith("[") and cmd.endswith("]"): #if CMD looks like "CMD ["nginx", "-g"]"
+                cmd = cmd[1:-1]
+                index = 0
+                shell_cmd=""
+                while index != -1:
+                    next_index = cmd.find("\"", index+1)
+                    shell_cmd +=" "+cmd[index:next_index+1]
+                    index=cmd.find("\"", next_index+1)
+                    new_cmd = "CMD sh -c '"+shell_cmd+" & /usr/sbin/sshd -D'"
+            else: #if CMD looks like "CMD nginx -g"
+                new_cmd = "CMD sh -c '"+cmd+" & /usr/sbin/sshd -D'"
+        else: #If no CMD in the Dockerfile
+            new_cmd = "CMD [\"/usr/sbin/sshd\", \"-D\"]"
+        with open(tmpdir+"/Dockerfile", 'a') as fo:
+            with open(os.path.dirname(os.path.abspath(__file__))+"/Dockerfile_template", 'r') as fi:
+                fo.write(fi.read())
+        cmd = "sed -i 's/CMD.*//g' "+tmpdir+"/Dockerfile"
+        subprocess.check_output(['bash', '-c', cmd])
+        with open(tmpdir+"/Dockerfile", 'a') as fo:
+            fo.write(new_cmd)
+        cmd = "docker build -t "+fullName+" --force-rm -f "+tmpdir+"/Dockerfile "+tmpdir
+        subprocess.check_output(['bash', '-c', cmd])
+        return True
+        
+
+    def dlfile(self, url, dest):
         try:
-            out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
-        except subprocess.CalledProcessError:
-            if DockerManager.building.get(image, None) is None:
-                DockerManager.building[image] = threading.Lock()
-            DockerManager.building[image].acquire()
-            self.buildSshImage(imageName)
-            DockerManager.building[image].release()
+            f = urlopen(url)
+            # Open local file for writing
+            with open(dest+"/"+os.path.basename(url), "wb") as local_file:
+                local_file.write(f.read())
+        #handle errors
+        except HTTPError, e:
+            print "HTTP Error:", e.code, url
+        except URLError, e:
+            print "URL Error:", e.reason, url
