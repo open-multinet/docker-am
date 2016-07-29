@@ -784,6 +784,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
     def manifest_rspec(self, slice_urn, provision=False):
         rspec = etree.parse(StringIO(self._slices[slice_urn].request_manifest))
+        rspec.getroot().set("type", "manifest")
         for node in rspec.getroot().getchildren():
             for s in self._slices[slice_urn].slivers():
                 if node.get("client_id") == s.resource().external_id and node.get("component_manager_id") == self._my_urn:
