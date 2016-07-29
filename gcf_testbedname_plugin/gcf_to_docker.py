@@ -9,6 +9,7 @@ import random
 import tempfile
 import hashlib
 import zipfile
+import shutil
 from urllib2 import urlopen, URLError, HTTPError
 
 
@@ -92,7 +93,7 @@ class DockerManager():
             return False
 
     def isContainerUp(self, id):
-        cmd = "docker inspect "+id
+        cmd = "docker ps --no-trunc --format {{.Names}} | grep -x "+id
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
@@ -159,6 +160,12 @@ class DockerManager():
         mac = [0x02, 0x42, 0xac, 0x11, random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
+    def deleteImage(self, name):
+        if name.startswith("urn") and len(name.split("::"))==2:
+            name = hashlib.sha1(name).hexdigest()
+        cmd = "docker rmi -f "+name
+        subprocess.check_output(['bash', '-c', cmd])
+            
     def buildSshImage(self, name):
         try:
             cmd = "mktemp"
@@ -207,14 +214,13 @@ class DockerManager():
         self.dlfile(url, tmpdir)
         if os.path.basename(url) == "Dockerfile":
             pass
-        elif os.path.basename(url).split(".")[-1] == "zip":
+        elif os.path.basename(url).split(".")[-1] == "zip": #A zip containing /Dockerfile or /folder/Dockerfile (and other things)
             zipfile.ZipFile(tmpdir+"/"+os.path.basename(url)).extractall(tmpdir)
-            if len(os.listdir(tmpdir))==2 and "Dockerfile" not in os.listdir(tmpdir):
+            if len(os.listdir(tmpdir))==2 and "Dockerfile" not in os.listdir(tmpdir): #If the zip contains a subfolder
                 cmd = "mv "+tmpdir+"/*/* "+tmpdir
                 subprocess.check_output(['bash', '-c', cmd])
-        elif os.path.basename(url).split(".")[-1] == "tar":
-            pass #TODO
         else:
+            shutil.rmtree(tmpdir)
             return "Error : Unsupported URL"
         #Fix CMD to start SSH daemon and the original command
         cmd = ""
@@ -244,6 +250,7 @@ class DockerManager():
             fo.write(new_cmd)
         cmd = "docker build -t "+fullName+" --force-rm -f "+tmpdir+"/Dockerfile "+tmpdir
         subprocess.check_output(['bash', '-c', cmd])
+        shutil.rmtree(tmpdir)
         return True
         
 

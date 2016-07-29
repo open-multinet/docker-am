@@ -78,7 +78,6 @@ class DockerContainer(Resource):
     def provision(self, user, key):
         if self.DockerManager.isContainerUp(self.id):
             self.DockerManager.removeContainer(self.id)
-        print self.ssh_port
         self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
         self.DockerManager.setupContainer(self.id, user, key)
 

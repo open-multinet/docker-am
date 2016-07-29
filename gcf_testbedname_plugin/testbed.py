@@ -60,6 +60,7 @@ from lxml import etree
 from gcf.geni.am.aggregate import Aggregate
 from dockercontainer import DockerContainer
 from dockermaster import DockerMaster
+from gcf_to_docker import DockerManager
 from gcf import geni
 from gcf.geni.util.tz_util import tzd
 from gcf.geni.util.urn_util import publicid_to_urn
@@ -130,6 +131,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         super(ReferenceAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
         self._urn_authority = "IDN "+urn_authority #IDN docker.ilabt.iminds.be
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
+        self.DockerManager = DockerManager()
         thread_sliver_daemon = threading.Thread(target=self.expireSliversDaemon)
         thread_sliver_daemon.daemon=True
         thread_sliver_daemon.start()
@@ -296,6 +298,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. Check your request (usually bad component_manager_id)")
 
         resources = list()
+        images_to_delete = list()
         for elem in unbound:
             client_id = elem.getAttribute('client_id')
             sliver_type = elem.getElementsByTagName('sliver_type')[0]
@@ -303,6 +306,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if sliver_type != "":
                 if len(sliver_type.getElementsByTagName("disk_image")) == 1:
                     image = sliver_type.getElementsByTagName("disk_image")[0].getAttribute("name")
+                    images_to_delete.append(image)
                 sliver_type = sliver_type.getAttribute('name')
             component_id = elem.getAttribute('component_id')
             if component_id == "": component_id=None
@@ -389,7 +393,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                                         template % (slice_urn))
         else:
             newslice = Slice(slice_urn)
-
+            
         for resource in resources:
             sliver = newslice.add_resource(resource)
             if resource.image is not None:
@@ -398,6 +402,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             sliver.setStartTime(start_time)
             sliver.setEndTime(end_time)
             sliver.setAllocationState(STATE_GENI_ALLOCATED)
+        for i in images_to_delete:
+            if i.startswith("http://") or i.startswith("https://") and i not in newslice.images_to_delete:
+                newslice.images_to_delete.append(i)
         self._agg.allocate(slice_urn, newslice.resources())
         self._agg.allocate(user_urn, newslice.resources())
         newslice.request_manifest = rspec
@@ -685,6 +692,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             slyce.delete_sliver(sliver)
             # If slice is now empty, delete it.
             if not slyce.slivers():
+                try:
+                    for i in self._slices[slyce.urn].images_to_delete:
+                        self.DockerManager.deleteImage(slyce.urn+"::"+i)
+                except:
+                    pass
                 self.logger.debug("Deleting empty slice %r", slyce.urn)
                 del self._slices[slyce.urn]
         self.dumpState()
@@ -850,6 +862,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             # If slice is now empty, delete it.
             if len(slyce.slivers()) == 0:
                 self.logger.debug("Deleting empty slice %r", slyce.urn)
+                try:
+                    for i in self._slices[slyce.urn].images_to_delete:
+                        self.DockerManager.deleteImage(slyce.urn+"::"+i)
+                except:
+                    pass
                 del self._slices[slyce.urn]
         if dump: #If something has changed, save data
             self.dumpState()
@@ -875,3 +892,4 @@ class Slice(am3.Slice):
     def __init__(self, urn):
         super(Slice,self).__init__(urn)
         self.request_manifest = None
+        self.images_to_delete = list()
