@@ -389,7 +389,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         for resource in resources:
             sliver = newslice.add_resource(resource)
-            resource.image = slice_urn+"::"+resource.image
+            if resource.image is not None:
+                resource.image = slice_urn+"::"+resource.image
             sliver.setExpiration(expiration)
             sliver.setStartTime(start_time)
             sliver.setEndTime(end_time)
