@@ -292,6 +292,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             if elem.getAttribute("component_manager_id") == self._my_urn:
                 unbound.append(elem)
 
+        if len(unbound)==0:
+            return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. Check your request (usually bad component_manager_id)")
+
         resources = list()
         for elem in unbound:
             client_id = elem.getAttribute('client_id')
