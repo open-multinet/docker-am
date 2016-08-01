@@ -78,8 +78,10 @@ class DockerContainer(Resource):
     def provision(self, user, key):
         if self.DockerManager.isContainerUp(self.id):
             self.DockerManager.removeContainer(self.id)
-        self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
-        self.DockerManager.setupContainer(self.id, user, key)
+        out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
+        if out is not True:
+            return out
+        return self.DockerManager.setupContainer(self.id, user, key)
 
     def updateUser(self, user, keys):
         if user not in self.users:

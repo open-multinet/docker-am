@@ -70,11 +70,14 @@ class DockerManager():
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except Exception as e:
             build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
-            subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
-            subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+            try:
+                out = subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
+                out = subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+            except subprocess.CalledProcessError:
+                return out
         if ssh_port in DockerManager.locked_port:
             DockerManager.locked_port.remove(ssh_port)
-        return uid
+        return True
 
     def stopContainer(self, id):
         cmd = "docker stop " + str(id)
@@ -106,18 +109,22 @@ class DockerManager():
         startNew(id)
 
     def setupUser(self, id, username, ssh_keys):
-        cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi'"
-        subprocess.check_output(['bash', '-c', cmd_create_user])
-        cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\""
-        subprocess.check_output(['bash', '-c', cmd_add_key])
-        for key in ssh_keys:
-            cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\""
-            subprocess.check_output(['bash', '-c', cmd_add_key])
-        cmd_set_rights = "docker exec "+ id + " sh -c 'chown -R "+username+": /home/"+username+" && chmod 700 /home/"+username+"/.ssh && chmod 644 /home/"+username+"/.ssh/authorized_keys'"
-        subprocess.check_output(['bash', '-c', cmd_set_rights])
+        try:
+            cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi'"
+            out = subprocess.check_output(['bash', '-c', cmd_create_user])
+            cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\""
+            out = subprocess.check_output(['bash', '-c', cmd_add_key])
+            for key in ssh_keys:
+                cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\""
+                out = subprocess.check_output(['bash', '-c', cmd_add_key])
+            cmd_set_rights = "docker exec "+ id + " sh -c 'chown -R "+username+": /home/"+username+" && chmod 700 /home/"+username+"/.ssh && chmod 644 /home/"+username+"/.ssh/authorized_keys'"
+            out = subprocess.check_output(['bash', '-c', cmd_set_rights])
+            return True
+        except subprocess.CalledProcessError:
+            return out
 
     def setupContainer(self, id, username, ssh_keys):
-        self.setupUser(id, username, ssh_keys)
+        return self.setupUser(id, username, ssh_keys)
 
     def getPort(self, id):
         cmd = "docker ps --format {{.Names}}//{{.Ports}} --no-trunc | grep "+id

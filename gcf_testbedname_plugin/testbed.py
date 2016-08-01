@@ -494,7 +494,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         # Configure user and ssh keys on nodes (dockercontainer)
 
         def thread_provisionning(sliver, user, keys):
-            sliver.resource().provision(user, keys)
+            if sliver.resource().provision(user, keys) is not True:
+                sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                return
             sliver.resource().checkSshConnection()
             sliver.setOperationalState(OPSTATE_GENI_READY)
             
