@@ -79,7 +79,7 @@ Then restart your docker daemon : ```systemctl restart docker.service```
 Run :
 
 ```
-python bootstrap-geni-am/geni-tools/src/gen-certs.py -c gcf_testbedname_plugin/gcf_config --notAll --am
+python bootstrap-geni-am/geni-tools/src/gen-certs.py -c bootstrap-geni-am/gcf_testbedname_plugin/gcf_config --notAll --am
 ```
 
 File will be placed where specified in gcf_config (keyfile and certfile)
@@ -87,3 +87,38 @@ File will be placed where specified in gcf_config (keyfile and certfile)
 # Starting the AM
 
 ```sh bootstrap-geni-am/run_am.sh```
+
+Or with the systemd service : ```cp am_docker.service /etc/systemd/system/```
+
+Edit the WorkingDirectory according to your installation, reload the systemd daemon : ```systemctl daemon-reload```, then start the AM : ```systemctl start am_docker.service```
+
+Check the status : ```systemctl status am_docker.service```
+
+# Trust your C-BAS installation
+
+If you use C-BAS as Member Authority (MA) and Slice Authority (SA), you have to trust credentials from this. To do, just copy certificates used by C-BAS in your "rootcadir" (configured in gcf_config), usually there stored ```C-BAS/deploy/trusted/certs```.
+
+Restart your AM, if you check the output of the server you should have this at the beginning :
+
+```
+INFO:cred-verifier:Adding trusted cert file sa-cert.pem
+INFO:cred-verifier:Adding trusted cert file ma-cert.pem
+INFO:cred-verifier:Adding trusted cert file ch-cert.pem
+INFO:cred-verifier:Adding trusted cert file ca-cert.pem
+INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
+```
+
+# Additionnal informations
+
+* Objects are serialized in ```bootstrap-geni-am/data.dat```, so you can restart the AM without consequence
+* Slivers expiration is checked every 5 minutes, and on each API call
+* Warning : If you restart the host, docker containers are lost, to keep consistent state delete ```data.dat``` before restart the AM.
+	* It should work without deleting the file but you could have some unexpected behaviors
+
+# Troubleshooting
+
+* If you get the error "Objects specify multiple slices", you probably made a typo in component\_manager\_id (during allocate call)
+* If your configuration is not taken in account, delete ```bootstrap-geni-am/data.dat``` and remove running containers ```docker rm -f $(docker ps -a -q)```
+* If you get an SSL error (like host not authenticated) check if you correctly add your AM/SA certs in trusted root
+
+
