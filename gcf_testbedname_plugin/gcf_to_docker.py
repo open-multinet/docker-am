@@ -10,14 +10,15 @@ import tempfile
 import hashlib
 import zipfile
 import shutil
+import time
 from urllib2 import urlopen, URLError, HTTPError
 
+locked_port = list()
+lock = threading.Lock()
+building = dict()
 
 class DockerManager():
 
-    locked_port = list()
-    lock = threading.Lock()
-    building = dict()
 
     def numberRunningContainer(self):
         cmd = "docker ps | grep -v '^CONTAINER' | wc -l"
@@ -30,28 +31,24 @@ class DockerManager():
             return starting_port
         else:
             cmd = "docker ps --format {{.Ports}} | sort"
-            output = subprocess.check_output(['bash', '-c', cmd])
-            output=output.strip().decode('utf-8')
+            output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             expected = starting_port
+            busy = list()
             for line in output.split('\n'):
                 m = re.search(':([0-9]*)->', line)
                 if m!=None:
-                    current = int(m.group(1))
+                    busy.append(int(m.group(1)))
                 else:
-                    current = None
-                if current != expected and expected not in DockerManager.locked_port:
-                    return expected
-                else:
-                    expected+=1
-        while expected in DockerManager.locked_port:
-            expected += 1
-        return expected
+                    continue
+            while expected in busy or expected in locked_port:
+                expected+=1
+            return expected
 
     def reserveNextPort(self, starting_port):
-        DockerManager.lock.acquire()
+        lock.acquire()
         port = self.getNextPort(starting_port)
-        DockerManager.locked_port.append(port)
-        DockerManager.lock.release()
+        locked_port.append(port)
+        lock.release()
         return port
 
     #image : Specific image to install, could be URL to a DockerFile or a zip or just the name from Docker Hub (eg debian:jessie). Always starts with "username::" (replace username)
@@ -75,8 +72,14 @@ class DockerManager():
                 out = subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             except subprocess.CalledProcessError:
                 return out
-        if ssh_port in DockerManager.locked_port:
-            DockerManager.locked_port.remove(ssh_port)
+        if ssh_port in locked_port:
+            i=0
+            while self.isContainerUp(id) == False:
+                i+=1
+                time.sleep(1)
+                if i==120:
+                    break
+            locked_port.remove(ssh_port)
         return True
 
     def stopContainer(self, id):
@@ -97,9 +100,11 @@ class DockerManager():
 
     def isContainerUp(self, id):
         cmd = "docker ps --no-trunc --format {{.Names}} | grep -x "+id
+        cmd = "docker inspect "+id+" 2> /dev/null"
         try:
-            subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
-            return True
+            out=subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+            out=json.loads(out)
+            return out[0]["State"]["Running"]
         except subprocess.CalledProcessError:
             return False
         
@@ -209,11 +214,11 @@ class DockerManager():
             try:
                 out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             except subprocess.CalledProcessError:
-                if DockerManager.building.get(image, None) is None:
-                    DockerManager.building[image] = threading.Lock()
-                DockerManager.building[image].acquire()
+                if building.get(image, None) is None:
+                    building[image] = threading.Lock()
+                building[image].acquire()
                 self.buildSshImage(imageName)
-                DockerManager.building[image].release()
+                building[image].release()
             return imageName
 
     def buildExternalImage(self, url, fullName):

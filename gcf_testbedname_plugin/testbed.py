@@ -77,6 +77,8 @@ from gcf.geni.auth.base_authorizer import *
 from gcf.geni.am.am_method_context import AMMethodContext
 from gcf.geni.am.api_error_exception import ApiErrorException
 
+from shutil import copyfile
+
 # See sfa/trust/rights.py
 # These are names of operations
 # from the rights.py privilege_table
@@ -121,7 +123,8 @@ OPSTATE_GENI_READY_BUSY = am3.OPSTATE_GENI_READY_BUSY
 OPSTATE_GENI_FAILED = am3.OPSTATE_GENI_FAILED
 
 EXPIRE_LOCK = threading.Lock()
-DUMP_LOCK = threading.Lock()
+DUMP_LOCK= threading.Lock()
+ALLOCATE_LOCK = threading.Lock()
 
 class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
@@ -286,6 +289,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             for t in node.getchildren():
                 if "sliver_type" in t.tag and t.get("name") not in sliver_types:
                     sliver_types.append(t.get("name"))
+        ALLOCATE_LOCK.acquire()
         available = self.resources(available=True, sliver_types=sliver_types)
         # Note: This only handles unbound nodes. Any attempt by the client
         # to specify a node is ignored.
@@ -295,6 +299,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 unbound.append(elem)
 
         if len(unbound)==0:
+            ALLOCATE_LOCK.release()
             return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. Check your request (usually bad component_manager_id)")
 
         resources = list()
@@ -320,6 +325,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                         continue
                     if resource is None: #Dockermaster is empty
                         available.remove(r)
+                        continue #Search next available resource
                     try: #Resource returned by DockerMaster are not listed in "available" list, so ignore Exception
                         available.remove(resource)
                     except:
@@ -329,6 +335,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 self.logger.error('Too big: not enought %s available',sliver_type)
                 for r in resources:
                     r.deallocate()
+                ALLOCATE_LOCK.release()
                 return self.errorResult(am3.AM_API.TOO_BIG, 'Too Big: insufficient resources to fulfill request')
             resource.external_id = client_id
             resource.available = False
@@ -336,6 +343,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             resource.image=image
             resources.append(resource)
 
+        ALLOCATE_LOCK.release()
         # determine max expiration time from credentials
         # do not create a sliver that will outlive the slice!
         expiration = self.min_expire(creds, self.max_alloc,
@@ -357,6 +365,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             start_time = self._naiveUTC(dateutil.parser.parse(start_time_raw))
         start_time = max(now, start_time)
         if (start_time > self.min_expire(creds)):
+            ALLOCATE_LOCK.acquire()
+            for sliver in newslice.slivers():
+                sliver.resource().deallocate()
+            ALLOCATE_LOCK.release()
             return self.errorResult(am3.AM_API.BAD_ARGS, 
                                     "Can't request start time on sliver after slice expiration")
 
@@ -385,6 +397,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     break
 
             if one_slice_overlaps:
+                ALLOCATE_LOCK.acquire()
+                for sliver in newslice.slivers():
+                    sliver.resource().deallocate()
+                ALLOCATE_LOCK.release()
                 template = "Slice %s already has slivers at requested time"
                 self.logger.error(template % (slice_urn))
                 for sliver in newslice.slivers():
@@ -499,6 +515,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 return
             sliver.resource().checkSshConnection()
             sliver.setOperationalState(OPSTATE_GENI_READY)
+
             
         if 'geni_users' in options:
             i=0
@@ -564,7 +581,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             # ensure that the slivers are provisioned
             if (sliver.allocationState() not in astates
                 or sliver.operationalState() not in ostates):
-                msg = "%d: Sliver %s is not in the right state for action %s."
+                msg = "%d: Sliver %s is not in the right state for action %s. Operational state : "+sliver.operationalState()+" ; Allocation state : "+sliver.allocationState()
                 msg = msg % (am3.AM_API.UNSUPPORTED, sliver.urn(), action)
                 errors[sliver.urn()] = msg
         best_effort = False
@@ -877,12 +894,16 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             
     def dumpState(self):
         DUMP_LOCK.acquire()
-        open("data.dat", 'w').close()
-        s = open("data.dat", "wb")
-        p = pickle.Pickler(s)
-        p.dump(self._agg)
-        p.dump(self._slices)
-        s.close()
+        try:
+            open("data2.dat", 'w').close()
+            s = open("data2.dat", "wb")
+            p = pickle.Pickler(s)
+            p.dump(self._agg)
+            p.dump(self._slices)
+            s.close()
+            copyfile("data2.dat", "data.dat")
+        except RuntimeError:
+            pass
         DUMP_LOCK.release()
 
     def expireSliversDaemon(self):

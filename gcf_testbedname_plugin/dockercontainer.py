@@ -29,6 +29,7 @@ from gcf.geni.am.resource import Resource
 from lxml import etree
 import uuid
 import subprocess
+import time
 
 class DockerContainer(Resource):
 
@@ -129,8 +130,18 @@ class DockerContainer(Resource):
         self.image = None
 
     def checkSshConnection(self):
+        connect = False
+        cmd = "nc -z "+self.host+" "+str(self.ssh_port)
+        while not connect:
+            try:
+                subprocess.check_output(['bash', '-c', cmd])
+                connect=True
+            except:
+                print "Retry connection to "+self.host+" on port "+str(self.ssh_port)
+                time.sleep(3)
+                pass
         try:
-            cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@"+self.host+" -p "+self.ssh_port+" 'test'"
+            cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@"+self.host+" -p "+str(self.ssh_port)+" 'test'"
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except:
             pass
