@@ -2,3 +2,5 @@
 .vagrant
 *.pyc
 *.dat
+*gcf_config
+*delegate_config

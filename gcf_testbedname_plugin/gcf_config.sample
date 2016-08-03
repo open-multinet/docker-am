@@ -17,15 +17,14 @@
 # Do not use more than one whitespace in a row.
 # Avoid:  <>"{}|\^`
 
-base_name=docker.ilabt.iminds.be
+base_name=docker.myAM
 
 
 
 # The directory that stores the trusted roots of your CH/AM 
 # and those you have federated with
 # This can be a relative or absolute path.
-#rootcadir=~/geni-tools/trusted_roots/
-rootcadir=~/C-BAS/deploy/trusted/certs/
+rootcadir=~/geni-tools/trusted_roots/
 
 
 
@@ -73,9 +72,15 @@ name=am1
 host=0.0.0.0
 port=8001
 # Cert/key locations
-keyfile=~/C-BAS/deploy/trusted/cert_keys/ch-key.pem
-certfile=~/C-BAS/deploy/trusted/certs/ch-cert.pem
+keyfile=~/cert_keys/ch-key.pem
+certfile=~/certs/ch-cert.pem
 delegate=testbed.ReferenceAggregateManager
+
+# By default (false) the Aggregate API will accept only one connection at the same time
+# Set this to 'true' if you want to enable multi-threaded XMLRPC server
+# Be sure your (delegate) code is designed to handle multiple requests at the same time (concurrence)
+# This option only works for AM Version 3
+multithread=true
 
 [gcf-test]
 # Used for testing that the CH and AM are properly running
