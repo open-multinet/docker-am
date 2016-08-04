@@ -30,6 +30,7 @@ class DockerManager():
         if self.numberRunningContainer() == 0:
             return starting_port
         else:
+            _locked_port = list(locked_port)
             cmd = "docker ps --format {{.Ports}} | sort"
             output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             expected = starting_port
@@ -40,7 +41,7 @@ class DockerManager():
                     busy.append(int(m.group(1)))
                 else:
                     continue
-            while expected in busy or expected in locked_port:
+            while expected in busy or expected in _locked_port:
                 expected+=1
             return expected
 
