@@ -44,6 +44,7 @@ class DockerContainer(Resource):
         self.host = host
         self.starting_ipv4_port=starting_ipv4_port
         self.image = None
+        self.error = ''
         self.DockerManager = DockerManager()
         self.mac = self.DockerManager.randomMacAddress()
         if ipv6_prefix is not None and len(ipv6_prefix)>0:
@@ -81,8 +82,17 @@ class DockerContainer(Resource):
             self.DockerManager.removeContainer(self.id)
         out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
         if out is not True:
-            return out
-        return self.DockerManager.setupContainer(self.id, user, key)
+            self.error = out
+            return False
+        else:
+            self.error=''
+        out =  self.DockerManager.setupContainer(self.id, user, key)
+        if out is not True:
+            self.error = out
+        else:
+            self.error=''
+        return True
+        
 
     def updateUser(self, user, keys):
         if user not in self.users:
@@ -128,16 +138,19 @@ class DockerContainer(Resource):
         super(DockerContainer, self).reset()
         self._agg.deallocate(container=None, resources=[self])
         self.image = None
+        self.error = ''
 
     def checkSshConnection(self):
         connect = False
         cmd = "nc -z "+self.host+" "+str(self.ssh_port)
-        while not connect:
+        retry = 20
+        while not connect and retry > 0:
             try:
                 subprocess.check_output(['bash', '-c', cmd])
                 connect=True
             except:
                 print "Retry connection to "+self.host+" on port "+str(self.ssh_port)
+                retry -= 1
                 time.sleep(3)
                 pass
         try:

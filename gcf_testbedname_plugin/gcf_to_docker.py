@@ -60,10 +60,12 @@ class DockerManager():
         imageName = "jessie_gcf_ssh" #Default
         if image is not None:
             imageName=self.processImage(image)
+            if not re.match(r'[a-fA-F0-9]{40}', imageName) and image.split("::")[1]!=imageName: #An error occured during processImage
+                return imageName
         if sliver_type=="docker-container":
-            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -P -t "+imageName+""# 2> /dev/null"
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -P -t "+imageName+" 2>&1"
         elif sliver_type == "docker-container_100M":
-            cmd = "docker run -d --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -t jessie_gcf_ssh 2> /dev/null"
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -P -t "+imageName+" 2>&1"
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except Exception as e:
@@ -71,8 +73,8 @@ class DockerManager():
             try:
                 out = subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
                 out = subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
-            except subprocess.CalledProcessError:
-                return out
+            except subprocess.CalledProcessError, e:
+                return e.output
         if ssh_port in locked_port:
             i=0
             while self.isContainerUp(id) == False:
@@ -100,7 +102,6 @@ class DockerManager():
             return False
 
     def isContainerUp(self, id):
-        cmd = "docker ps --no-trunc --format {{.Names}} | grep -x "+id
         cmd = "docker inspect "+id+" 2> /dev/null"
         try:
             out=subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
@@ -116,18 +117,18 @@ class DockerManager():
 
     def setupUser(self, id, username, ssh_keys):
         try:
-            cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi'"
+            cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi' 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_create_user])
-            cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\""
+            cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\" 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_add_key])
             for key in ssh_keys:
-                cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\""
+                cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\" 2>&1"
                 out = subprocess.check_output(['bash', '-c', cmd_add_key])
-            cmd_set_rights = "docker exec "+ id + " sh -c 'chown -R "+username+": /home/"+username+" && chmod 700 /home/"+username+"/.ssh && chmod 644 /home/"+username+"/.ssh/authorized_keys'"
+            cmd_set_rights = "docker exec "+ id + " sh -c 'chown -R "+username+": /home/"+username+" && chmod 700 /home/"+username+"/.ssh && chmod 644 /home/"+username+"/.ssh/authorized_keys' 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_set_rights])
             return True
-        except subprocess.CalledProcessError:
-            return out
+        except subprocess.CalledProcessError, e:
+            return e.output
 
     def setupContainer(self, id, username, ssh_keys):
         return self.setupUser(id, username, ssh_keys)
@@ -187,14 +188,14 @@ class DockerManager():
             out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             cmd = "cat "+os.path.dirname(os.path.abspath(__file__))+"/Dockerfile_template >> "+tmpfile
             out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
-            cmd = "docker build -t "+name+" --force-rm -f "+tmpfile+" /tmp"
+            cmd = "docker build -t "+name+" --force-rm -f "+tmpfile+" /tmp 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             cmd = "rm -f "+tmpfile
             out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             return True
         except subprocess.CalledProcessError, e:
-            print(str(e))
-            return False #TODO if build fail set the status error
+            print e.output
+            return e.output
 
 
     def processImage(self, image):
@@ -207,18 +208,22 @@ class DockerManager():
             try:
                 subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             except subprocess.CalledProcessError: #Image doesn't exists
-                self.buildExternalImage(imageName, image)
+                out = self.buildExternalImage(imageName, image)
+                if out is not True:
+                    return out
             return image
         else: #Docker hub image
             #Check if image exists
             cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+imageName
             try:
-                out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+                subprocess.check_output(['bash', '-c', cmd])
             except subprocess.CalledProcessError:
                 if building.get(image, None) is None:
                     building[image] = threading.Lock()
                 building[image].acquire()
-                self.buildSshImage(imageName)
+                out = self.buildSshImage(imageName)
+                if out is not True:
+                    return out
                 building[image].release()
             return imageName
 
@@ -261,8 +266,12 @@ class DockerManager():
         subprocess.check_output(['bash', '-c', cmd])
         with open(tmpdir+"/Dockerfile", 'a') as fo:
             fo.write(new_cmd)
-        cmd = "docker build -t "+fullName+" --force-rm -f "+tmpdir+"/Dockerfile "+tmpdir
-        subprocess.check_output(['bash', '-c', cmd])
+        cmd = "docker build -t "+fullName+" --force-rm -f "+tmpdir+"/Dockerfile "+tmpdir+" 2>&1"
+        try:
+            subprocess.check_output(['bash', '-c', cmd])
+        except subprocess.CalledProcessError, e:
+            shutil.rmtree(tmpdir)
+            return e.output
         shutil.rmtree(tmpdir)
         return True
         

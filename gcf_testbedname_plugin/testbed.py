@@ -581,7 +581,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             # ensure that the slivers are provisioned
             if (sliver.allocationState() not in astates
                 or sliver.operationalState() not in ostates):
-                msg = "%d: Sliver %s is not in the right state for action %s. Operational state : "+sliver.operationalState()+" ; Allocation state : "+sliver.allocationState()
+                msg = "%d: Sliver %s is not in the right state for action %s."
                 msg = msg % (am3.AM_API.UNSUPPORTED, sliver.urn(), action)
                 errors[sliver.urn()] = msg
         best_effort = False
@@ -721,6 +721,37 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         self.dumpState()
         return self.successResult([s.status() for s in slivers])
 
+    def Status(self, urns, credentials, options):
+        '''Report as much as is known about the status of the resources
+        in the sliver. The AM may not know.
+        Return a dict of sliver urn, status, and a list of dicts resource
+        statuses.'''
+
+        # Loop over the resources in a sliver gathering status.
+        self.logger.info('Status(%r)' % (urns))
+        self.expire_slivers()
+        the_slice, slivers = self.decode_urns(urns)
+        privileges = (SLIVERSTATUSPRIV,)
+        self.getVerifiedCredentials(the_slice.urn, credentials, options, privileges)
+        geni_slivers = list()
+        for sliver in slivers:
+            expiration = self.rfc3339format(sliver.expiration())
+            start_time = self.rfc3339format(sliver.startTime())
+            end_time = self.rfc3339format(sliver.endTime())
+            allocation_state = sliver.allocationState()
+            operational_state = sliver.operationalState()
+            error = sliver.resource().error
+            print "STATUS : "+error
+            geni_slivers.append(dict(geni_sliver_urn=sliver.urn(),
+                                     geni_expires=expiration,
+                                     geni_start_time=start_time,
+                                     geni_end_time=end_time,
+                                     geni_allocation_status=allocation_state,
+                                     geni_operational_status=operational_state,
+                                     geni_error=''))
+        result = dict(geni_urn=the_slice.urn,
+                      geni_slivers=[s.status(s.resource().error) for s in slivers])
+        return self.successResult(result)
 
     def Renew(self, urns, credentials, expiration_time, options):
         '''Renew the local sliver that is part of the named Slice
@@ -728,55 +759,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         Requires at least one credential that is valid until then.
         Return False on any error, True on success.'''
 
-        self.logger.info('Renew(%r, %r)' % (urns, expiration_time))
-        self.expire_slivers()
-        the_slice, slivers = self.decode_urns(urns)
-
-        privileges = (RENEWSLIVERPRIV,)
-        creds = self.getVerifiedCredentials(the_slice.urn, credentials, options, privileges)
-
-        # All the credentials we just got are valid
-        expiration = self.min_expire(creds, self.max_lease)
-        requested = dateutil.parser.parse(str(expiration_time), tzinfos=tzd)
-
-
-        # Per the AM API, the input time should be TZ-aware
-        # But since the slice cred may not (per ISO8601), convert
-        # it to naiveUTC for comparison
-        requested = self._naiveUTC(requested)
-
-
-        # If geni_extend_alap option provided, use the earlier 
-        # of the requested time and max expiration as the expiration time
-        if 'geni_extend_alap' in options and options['geni_extend_alap']:
-            if expiration < requested:
-                self.logger.info("Got geni_extend_alap: revising slice %s renew request from %s to %s", urns, requested, expiration)
-                requested = expiration
-
-        now = datetime.datetime.utcnow()
-        if requested > expiration:
-            # Fail the call, the requested expiration exceeds the slice expir.
-            msg = (("Out of range: Expiration %s is out of range"
-                   + " (past last credential expiration of %s).")
-                   % (expiration_time, expiration))
-            self.logger.error(msg)
-            return self.errorResult(am3.AM_API.OUT_OF_RANGE, msg)
-        elif requested < now:
-            msg = (("Out of range: Expiration %s is out of range"
-                   + " (prior to now %s).")
-                   % (expiration_time, now.isoformat()))
-            self.logger.error(msg)
-            return self.errorResult(am3.AM_API.OUT_OF_RANGE, msg)
-        else:
-            # Renew all the named slivers
-            for sliver in slivers:
-                sliver.setExpiration(requested)
-                end_time = max(sliver.endTime(), requested)
-                sliver.setEndTime(end_time)
-
-        geni_slivers = [s.status() for s in slivers]
+        out = super(ReferenceAggregateManager,self).Renew(urns, credentials, expiration_time, options)
         self.dumpState()
-        return self.successResult(geni_slivers)
+        return self.successResult(out)
 
     def advert_resource(self, resource):
         return resource.genAdvertNode(self._urn_authority, self._my_urn)
