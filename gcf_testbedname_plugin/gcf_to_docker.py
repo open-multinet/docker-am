@@ -11,6 +11,7 @@ import hashlib
 import zipfile
 import shutil
 import time
+import logging
 from urllib2 import urlopen, URLError, HTTPError
 
 locked_port = list()
@@ -278,6 +279,6 @@ class DockerManager():
                 local_file.write(f.read())
         #handle errors
         except HTTPError, e:
-            print "HTTP Error:", e.code, url
+            logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
         except URLError, e:
-            print "URL Error:", e.reason, url
+            logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
