@@ -27,23 +27,17 @@ class DockerManager():
         return output
 
     def getNextPort(self, starting_port):
-        if self.numberRunningContainer() == 0:
-            return starting_port
-        else:
-            _locked_port = list(locked_port)
-            cmd = "docker ps --format {{.Ports}} | sort"
-            output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
-            expected = starting_port
-            busy = list()
-            for line in output.split('\n'):
-                m = re.search(':([0-9]*)->', line)
-                if m!=None:
-                    busy.append(int(m.group(1)))
-                else:
-                    continue
-            while expected in busy or expected in _locked_port:
-                expected+=1
-            return expected
+        _locked_port = list(locked_port)
+        cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep -o \":[0-9]\\+$\" | grep -o [0-9]* | sort -n | uniq"
+        output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
+        expected = starting_port
+        busy = list()
+        for line in output.split('\n'):
+            if int(line) >= starting_port:
+                busy.append(int(line))
+        while expected in busy or expected in _locked_port:
+            expected+=1
+        return expected
 
     def reserveNextPort(self, starting_port):
         lock.acquire()
@@ -69,19 +63,21 @@ class DockerManager():
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except Exception as e:
+            if "Unable to find image" not in e.output:
+                return e.output
             build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
             try:
-                out = subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
-                out = subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+                subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
+                subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             except subprocess.CalledProcessError, e:
                 return e.output
         if ssh_port in locked_port:
             i=0
-            while self.isContainerUp(id) == False:
+            while self.isContainerUp(ssh_port) == False:
                 i+=1
                 time.sleep(1)
-                if i==120:
-                    break
+                if i==45:
+                    return "Container not up after 45 seconds. Something went wrong"
             locked_port.remove(ssh_port)
         return True
 
@@ -99,14 +95,13 @@ class DockerManager():
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
         except Exception as e:
-            return False
+            return e.output
 
-    def isContainerUp(self, id):
-        cmd = "docker inspect "+id+" 2> /dev/null"
+    def isContainerUp(self, port):
+        cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep -o \":[0-9]\\+$\" | grep -o [0-9]* | grep -x "+str(port)
         try:
             out=subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
-            out=json.loads(out)
-            return out[0]["State"]["Running"]
+            return True
         except subprocess.CalledProcessError:
             return False
         
@@ -194,7 +189,6 @@ class DockerManager():
             out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
             return True
         except subprocess.CalledProcessError, e:
-            print e.output
             return e.output
 
 

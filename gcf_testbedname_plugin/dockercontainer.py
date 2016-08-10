@@ -74,11 +74,11 @@ class DockerContainer(Resource):
     def preprovision(self, user):
         if user not in self.users:
             self.users.append(user)
-        if not self.DockerManager.isContainerUp(self.id):
+        if self.ssh_port==22 or not self.DockerManager.isContainerUp(self.ssh_port):
             self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
     def provision(self, user, key):
-        if self.DockerManager.isContainerUp(self.id):
+        if self.DockerManager.isContainerUp(self.ssh_port):
             self.DockerManager.removeContainer(self.id)
         out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
         if out is not True:
@@ -153,9 +153,12 @@ class DockerContainer(Resource):
                 retry -= 1
                 time.sleep(3)
                 pass
+        if not connect:
+            return False
         try:
             cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@"+self.host+" -p "+str(self.ssh_port)+" 'test'"
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except:
             pass
+        return True
         

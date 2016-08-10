@@ -146,7 +146,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             s.close()
         except Exception as e:
             self.logger.info(str(e))
-            self.logger.info("Load new instance")
+            self.logger.info("Loading new instance...")
             self._agg = Aggregate()
             config = ConfigParser.SafeConfigParser()
             config.read(os.path.dirname(os.path.abspath(__file__))+"/delegate_config")
@@ -505,24 +505,37 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             sliver.setEndTime(expiration)
             sliver.setExpiration(expiration)
             sliver.setAllocationState(STATE_GENI_PROVISIONED)
-            sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
+            
 
         # Configure user and ssh keys on nodes (dockercontainer)
 
         def thread_provisionning(sliver, user, keys):
             if sliver.resource().provision(user, keys) is not True:
                 sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                sliver.resource().deprovision()
                 return
-            sliver.resource().checkSshConnection()
+            if sliver.resource().checkSshConnection() is not True:
+                sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                sliver.resource().deprovision()
+                return
             sliver.setOperationalState(OPSTATE_GENI_READY)
 
-            
         if 'geni_users' in options:
             i=0
             for user in options['geni_users']:
                 if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
+                    arr_threads = list()
+                    slivers_tmp = list(slivers)
                     for sliver in slivers:
-                        sliver.resource().preprovision(urn.URN(urn=user['urn']).getName())
+                        if sliver.operationalState() == OPSTATE_GENI_CONFIGURING:
+                            slivers_tmp.remove(sliver)
+                            continue
+                        sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
+                        arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[urn.URN(urn=user['urn']).getName()]))
+                        arr_threads[-1].start()
+                    for t in arr_threads:
+                        t.join()
+                    for sliver in slivers_tmp:
                         threading.Thread(target=thread_provisionning, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
                 else:
                     sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
@@ -706,19 +719,22 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         resources = [sliver.resource() for sliver in slivers]
         self._agg.deallocate(the_slice.urn, resources)
         self._agg.deallocate(user_urn, resources)
-        for sliver in slivers:
-            slyce = sliver.slice()
-            slyce.delete_sliver(sliver)
-            # If slice is now empty, delete it.
-            if not slyce.slivers():
-                try:
-                    for i in self._slices[slyce.urn].images_to_delete:
-                        self.DockerManager.deleteImage(slyce.urn+"::"+i)
-                except:
-                    pass
-                self.logger.debug("Deleting empty slice %r", slyce.urn)
-                del self._slices[slyce.urn]
-        self.dumpState()
+        def thread_delete(slivers):
+            for sliver in slivers:
+                slyce = sliver.slice()
+                slyce.delete_sliver(sliver)
+                # If slice is now empty, delete it.
+                if not slyce.slivers():
+                    try:
+                        for i in self._slices[slyce.urn].images_to_delete:
+                            self.DockerManager.deleteImage(slyce.urn+"::"+i)
+                    except:
+                        pass
+                    self.logger.debug("Deleting empty slice %r", slyce.urn)
+                    del self._slices[slyce.urn]
+            self.dumpState()
+
+        threading.Thread(target=thread_delete, args=[slivers]).start()
         return self.successResult([s.status() for s in slivers])
 
     def Status(self, urns, credentials, options):
@@ -741,7 +757,6 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             allocation_state = sliver.allocationState()
             operational_state = sliver.operationalState()
             error = sliver.resource().error
-            print "STATUS : "+error
             geni_slivers.append(dict(geni_sliver_urn=sliver.urn(),
                                      geni_expires=expiration,
                                      geni_start_time=start_time,
