@@ -282,3 +282,34 @@ class DockerManager():
             logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
         except URLError, e:
             logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
+
+    def installCommand(self, id, url, install_path):
+        cmd_docker = "docker exec "+id+" "
+        filename = os.path.basename(url)
+        ext = os.path.basename(url).split(".")[-1]
+        cmd = cmd_docker+"mkdir -p "+install_path+" 2>&1"
+        try:
+            subprocess.check_output(['bash', '-c', cmd])
+            cmd = cmd_docker+"curl -fsS -o "+install_path+"/"+filename+" "+url+" 2>&1"
+            subprocess.check_output(['bash', '-c', cmd])
+            if filename.split(".")[-1] == "gz" and filename.split(".")[-2] == "tar": # tar.gz file
+                cmd = cmd_docker+"tar xzf "+install_path+"/"+filename+" -C "+install_path+" 2>&1"
+                subprocess.check_output(['bash', '-c', cmd])
+        except subprocess.CalledProcessError as e:
+            return e.output.strip()
+        return True
+
+    def executeCommand(self, id, shell, cmd):
+        cmd_docker = "docker exec "+id+" "
+        if shell not in ['sh', 'zsh', 'bash', 'csh', 'tcsh', 'ksh']:
+            print "Shell error"
+            cmd = cmd_docker+" sh -c 'echo \"Invalid shell\" >> /tmp/execute.log '"
+            subprocess.check_output(['bash', '-c', cmd])
+            return
+        cmd=cmd.replace("'", "'\\''")
+        cmd = cmd_docker+shell+" -c '"+cmd+"'"
+        print cmd
+        try:
+            subprocess.check_output(['bash', '-c', cmd])
+        except subprocess.CalledProcessError as e:
+            pass

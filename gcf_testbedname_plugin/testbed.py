@@ -519,6 +519,46 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 sliver.resource().deprovision()
                 return
             sliver.setOperationalState(OPSTATE_GENI_READY)
+            self.dumpState()
+            for i in getServiceInstall(getXmlNode(sliver.resource().external_id)):
+                ret =  sliver.resource().installCommand(i[0], i[1])
+                if ret is not True:
+                     sliver.resource().error = ret
+                else:
+                     sliver.resource().error = ""
+            self.dumpState()
+            for i in getServiceExecute(getXmlNode(sliver.resource().external_id)):
+                sliver.resource().executeCommand(i[0], i[1])            
+            
+
+        def getXmlNode(client_id, manifest=the_slice.request_manifest):
+            for node in etree.parse(StringIO(manifest)).getroot().getchildren():
+                if node.get("client_id")==client_id:
+                    return node
+            return None
+
+        def getServiceInstall(etreeNode):
+            ns="{"+etreeNode.nsmap.get(None)+"}"
+            services =  etreeNode.find(ns+"services")
+            if services is None:
+                return []
+            else:
+                ret = list()
+                for install in services.findall(ns+'install'):
+                    ret.append([install.get('url'), install.get('install_path')])
+                return ret
+
+        def getServiceExecute(etreeNode):
+            ns="{"+etreeNode.nsmap.get(None)+"}"
+            services =  etreeNode.find(ns+"services")
+            if services is None:
+                return []
+            else:
+                ret = list()
+                for install in services.findall(ns+'execute'):
+                    ret.append([install.get('shell'), install.get('command')])
+                return ret
+
 
         if 'geni_users' in options:
             i=0

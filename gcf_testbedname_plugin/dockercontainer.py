@@ -161,4 +161,9 @@ class DockerContainer(Resource):
         except:
             pass
         return True
-        
+
+    def installCommand(self, url, install_path):
+        return self.DockerManager.installCommand(self.id, url, install_path)
+
+    def executeCommand(self, shell, cmd):
+        return self.DockerManager.executeCommand(self.id, shell, cmd)
