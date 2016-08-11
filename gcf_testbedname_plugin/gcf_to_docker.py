@@ -301,15 +301,29 @@ class DockerManager():
 
     def executeCommand(self, id, shell, cmd):
         cmd_docker = "docker exec "+id+" "
-        if shell not in ['sh', 'zsh', 'bash', 'csh', 'tcsh', 'ksh']:
-            print "Shell error"
-            cmd = cmd_docker+" sh -c 'echo \"Invalid shell\" >> /tmp/execute.log '"
+        log_dir = "/tmp/"
+        if shell not in ['sh', 'bash']:
+            cmd = cmd_docker+"sh -c 'echo \"Invalid shell\" >> /tmp/execute.log '"
             subprocess.check_output(['bash', '-c', cmd])
             return
-        cmd=cmd.replace("'", "'\\''")
-        cmd = cmd_docker+shell+" -c '"+cmd+"'"
-        print cmd
+        try:
+            list_startup = cmd_docker+"sh -c 'ls "+log_dir+" | grep startup-.*.sh | grep -o [0-9]*'"
+            out = subprocess.check_output(['bash', '-c', list_startup]).strip().split('\n')
+            next_nb = int(max(out))+1
+        except subprocess.CalledProcessError as e:
+            next_nb = 0
+        tmp = tempfile.mkstemp()[1]
+        with open(tmp, 'w') as local:
+            local.write(cmd)
+        cmd = "docker cp "+tmp+" "+id+":/"+log_dir+"startup-"+str(next_nb)+".sh"
         try:
             subprocess.check_output(['bash', '-c', cmd])
+            os.remove(tmp)
+            cmd = cmd_docker+"sudo sh -c '"+shell+" "+log_dir+"startup-"+str(next_nb)+".sh > "+log_dir+"startup-"+str(next_nb)+".txt'"
+            print cmd
+            subprocess.check_output(['bash', '-c', cmd])
+            cmd = cmd_docker+"sh -c 'echo \"0\" > "+log_dir+"startup-"+str(next_nb)+".status'"
+            subprocess.check_output(['bash', '-c', cmd])
         except subprocess.CalledProcessError as e:
-            pass
+            cmd = cmd_docker+"sh -c 'echo \""+str(e.returncode)+"\" > "+log_dir+"startup-"+str(next_nb)+".status'"
+            subprocess.check_output(['bash', '-c', cmd])
