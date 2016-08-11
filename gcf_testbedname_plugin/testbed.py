@@ -523,10 +523,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             for i in getServiceInstall(getXmlNode(sliver.resource().external_id)):
                 ret =  sliver.resource().installCommand(i[0], i[1])
                 if ret is not True:
-                     sliver.resource().error = ret
+                    sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                    sliver.resource().error = ret
                 else:
-                     sliver.resource().error = ""
-            self.dumpState()
+                    sliver.resource().error = ""
+                self.dumpState()
             for i in getServiceExecute(getXmlNode(sliver.resource().external_id)):
                 sliver.resource().executeCommand(i[0], i[1])            
             
