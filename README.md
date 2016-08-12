@@ -34,8 +34,8 @@ Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/gcf_config```
 
 * base_name : Generally the name of your machine. This is the name used in the URN (urn:publicid:IDN+docker.ilabt.iminds.be+)
 * rootcadir : A directory where your trusted root certificates are (wall2.pem for example)
-* host : Without proxy it should be 0.0.0.0 (listen on all interfaces/addresses)
-* port : You are free to choose a port. 443 is recommended.
+* host : This should be the DNS name of the server. It is not only used for binding the server socket, it is also used in the GetVersion reply as server URL. 
+* port : You are free to choose a port. 443 is recommended (because it is infrequently blocked by client side firewalls).
 * delegate : Must be = testbed.ReferenceAggregateManager
 * keyfile and certfile = Field used to create AM certificate
 

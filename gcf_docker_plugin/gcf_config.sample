@@ -32,8 +32,8 @@ rootcadir=~/geni-tools/trusted_roots/
 
 
 [aggregate_manager]
-# Address that the AM listens on
-host=0.0.0.0
+# Address that the AM listens on. This is also used in the GetVersion reply as URL. So you need to use the server DNS name here.
+host=docker.example.com
 # running the sever on port 443 is nice, because it XML-RPC uses HTTP over SSL. This port is also less lickely to be firewalled at any clients side
 port=443
 
