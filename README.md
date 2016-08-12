@@ -30,18 +30,18 @@ Two files are used to configure the AM.
 
 ### gcf_config
 
-Path of this file : bootstrap-geni-am/gcf\_testbedname\_plugin/gcf_config
+Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/gcf_config```
 
 * base_name : Generally the name of your machine. This is the name used in the URN (urn:publicid:IDN+docker.ilabt.iminds.be+)
 * rootcadir : A directory where your trusted root certificates are (wall2.pem for example)
 * host : Without proxy it should be 0.0.0.0 (listen on all interfaces/addresses)
-* port : Usually is 8001 but what you want
+* port : You are free to choose a port. 443 is recommended.
 * delegate : Must be = testbed.ReferenceAggregateManager
 * keyfile and certfile = Field used to create AM certificate
 
 ### delegate_config
 
-Path of this file : bootstrap-geni-am/gcf\_testbedname\_plugin/delegate_config
+Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/delegate_config```
 
 Each "section" (a section start with "[name\_of\_the\_section]") in this file represents a DockerMaster (a dockermaster host one or more containers). If you want to configure multiple DockerMaster just duplicate the first section and change the name. Then, configure parameters :
 
@@ -76,13 +76,25 @@ Then restart your docker daemon : ```systemctl restart docker.service```
 
 ## Generate certificate and key
 
-Run :
+You need to get a server key and certificate for the AM. You can either get a real one (using your regular way to get SSL Certificate, or using "Let’s Encrypt"), or you can create a self signed AM server certificate. In the later case, you will need to add the self signed certificate to the trust store of all clients (which is not a big deal, as you need to add other server info anyway).
 
+It is advised not to use the ```bootstrap-geni-am/geni-tools/src/gen-certs.py``` script provided by gcf, it does not generate a good AM server certificate.
+A valid server certificate should have:
+* A Subject Name containing a CN equal to the server hostname
+* One or more Subject Alternative Names of type DNS matching the server hostname(s)
+* The server hostname mentioned in the 2 points above, should be a DNS name, never a raw IP address
+* There is no real need for the certificate to contain a Subject Alternative Name of type URI that contains the URN of the AM. But it is off course no problem if it is included.
+
+Also note that your AM server certificate has nothing to do with the root certificate of your cleaninghouse (= MA/SA). The clearinghouse root certificate is used for trusting credentials and for SSL client authentication, it has nothing to do with SSL *server* authentication!
+
+To generate a self signed server certificate, you can use the provided script:
 ```
-python bootstrap-geni-am/geni-tools/src/gen-certs.py -c bootstrap-geni-am/gcf_docker_plugin/gcf_config --notAll --am
+cd generate-AM-server-cert/
+./generate-certs.sh
 ```
 
-File will be placed where specified in gcf_config (keyfile and certfile)
+Make sure the location of the server key and certificate matches the keyfile and certfile options specified in ```bootstrap-geni-am/gcf\_docker\_plugin/gcf_config```
+
 
 # Starting the AM
 
