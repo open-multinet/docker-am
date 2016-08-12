@@ -5,6 +5,7 @@ max_containers=20
 #a /64 or /80 prefix
 #If empty the IPV6 support will not be enable
 #ipv6_prefix=2001:06a8:1d80:0601::
+ipv6_prefix=
 
 #IPV4 host returned by the manifest. Also used by the AM to launch command on the AM
 #If empty, means the dockermaster is on the same host than the AM.
