@@ -572,7 +572,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                             slivers_tmp.remove(sliver)
                             continue
                         sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
-                        arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[urn.URN(urn=user['urn']).getName()]))
+                        arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[urn.URN(urn=user['urn']).getName(), user['keys']]))
                         arr_threads[-1].start()
                     for t in arr_threads:
                         t.join()
@@ -621,6 +621,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         elif action == 'geni_update_users':
             astates = [STATE_GENI_PROVISIONED]
             ostates = [OPSTATE_GENI_READY]
+        elif action == 'geni_reload':
+            astates = [STATE_GENI_PROVISIONED]
+            ostates = [OPSTATE_GENI_READY]
+
         else:
             msg = "Unsupported: action %s is not supported" % (action)
             raise ApiErrorException(am3.AM_API.UNSUPPORTED, msg)
@@ -645,16 +649,41 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             raise ApiErrorException(am3.AM_API.UNSUPPORTED,
                                     "\n".join(errors.values()))
 
+        def thread_restart(sliver):
+            users = list(sliver.resource().users.keys())
+            default_user = users.pop()
+            ret = sliver.resource().provision(default_user, sliver.resource().users[default_user])
+            if ret is not True:
+                sliver.resource().error = ret
+                sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                self.dumpState()
+                return
+            for u in users:
+                ret = sliver.resource().updateUser(u, sliver.resource().users[u])
+                if ret is not True:
+                    sliver.resource().error = ret
+                    sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                    self.dumpState()
+                    return
+            sliver.resource().checkSshConnection()
+            sliver.setOperationalState(OPSTATE_GENI_READY)
+            self.dumpState()
+
         # Perform the state changes:
         for sliver in slivers:
             if (action == 'geni_start'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
                     pass
-            elif (action == 'geni_restart'):
+            elif (action == 'geni_reload'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
-                    sliver.setOperationalState(OPSTATE_GENI_READY)
+                    sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
+                    threading.Thread(target=thread_restart, args=[sliver]).start()
+            elif (action == 'geni_stop'):
+                if (sliver.allocationState() in astates
+                    and sliver.operationalState() in ostates):
+                    sliver.setOperationalState(OPSTATE_GENI_NOT_READY)
             elif (action == 'geni_stop'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):

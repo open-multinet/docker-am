@@ -39,7 +39,7 @@ class DockerContainer(Resource):
         super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
         self._agg = agg
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
-        self.users=list()
+        self.users=dict()
         self.ssh_port=22
         self.host = host
         self.starting_ipv4_port=starting_ipv4_port
@@ -57,7 +57,7 @@ class DockerContainer(Resource):
     def deprovision(self):
         """Deprovision this resource at the resource provider."""
         self.DockerManager.removeContainer(self.id)
-        self.users = list()
+        self.users = dict()
         self.ssh_port=22
         
     def deallocate(self):
@@ -69,11 +69,11 @@ class DockerContainer(Resource):
         return self.ssh_port
 
     def getUsers(self):
-        return self.users
+        return self.users.keys()
 
-    def preprovision(self, user):
-        if user not in self.users:
-            self.users.append(user)
+    def preprovision(self, user, ssh_keys):
+        if user not in self.users.keys():
+            self.users[user]=ssh_keys
         if self.ssh_port==22 or not self.DockerManager.isContainerUp(self.ssh_port):
             self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
@@ -95,9 +95,9 @@ class DockerContainer(Resource):
         
 
     def updateUser(self, user, keys):
-        if user not in self.users:
-            self.users.append(user)
-        self.DockerManager.setupUser(self.id, user, keys)
+        if user not in self.users.keys():
+            self.users[user]=keys
+        return self.DockerManager.setupUser(self.id, user, keys)
 
     def manifestAuth(self):
         if len(self.getUsers())==0:
