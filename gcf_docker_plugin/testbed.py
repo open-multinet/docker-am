@@ -967,7 +967,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         try:
             open("data2.dat", 'w').close()
             s = open("data2.dat", "wb")
-            p = pickle.Pickler(s)
+            p = pickle.Pickler(s, pickle.HIGHEST_PROTOCOL)
             p.dump(self._agg)
             p.dump(self._slices)
             s.close()
