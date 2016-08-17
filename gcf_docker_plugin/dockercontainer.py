@@ -30,12 +30,13 @@ from lxml import etree
 import uuid
 import subprocess
 import time
+import Pyro4
 
 class DockerContainer(Resource):
 
     DEFAULT_SLIVER_TYPE="dockercontainer"
     
-    def __init__(self, agg, starting_ipv4_port, host="localhost", ipv6_prefix=None):
+    def __init__(self, agg, starting_ipv4_port, dockermanager, host="localhost", ipv6_prefix=None):
         super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
         self._agg = agg
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
@@ -45,7 +46,9 @@ class DockerContainer(Resource):
         self.starting_ipv4_port=starting_ipv4_port
         self.image = None
         self.error = ''
-        self.DockerManager = DockerManager()
+        #self.DockerManager = DockerManager()
+        #self.DockerManager = Pyro4.Proxy("PYRO:test@localhost:11999")
+        self.DockerManager = dockermanager
         self.mac = self.DockerManager.randomMacAddress()
         if ipv6_prefix is not None and len(ipv6_prefix)>0:
             self.ipv6 = self.DockerManager.computeIpV6(ipv6_prefix, self.mac)

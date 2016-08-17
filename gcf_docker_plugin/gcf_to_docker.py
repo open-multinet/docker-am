@@ -12,12 +12,14 @@ import zipfile
 import shutil
 import time
 import logging
+import Pyro4
 from urllib2 import urlopen, URLError, HTTPError
 
 locked_port = list()
 lock = threading.Lock()
 building = dict()
 
+@Pyro4.expose
 class DockerManager():
 
 

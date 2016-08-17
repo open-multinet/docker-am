@@ -29,17 +29,18 @@ from gcf.geni.am.resource import Resource
 from lxml import etree
 import uuid
 from urllib2 import urlopen
+from gcf_to_docker import DockerManager
 
 class DockerMaster(Resource):
-    def __init__(self, agg, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None):
+    def __init__(self, agg, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None, dockermanager=None):
         super(DockerMaster, self).__init__(str(uuid.uuid4()), "dockermaster")
         if starting_ipv4_port is None or starting_ipv4_port<=1024:
             starting_ipv4_port=12000 #Default
+        if dockermanager is None:
+            dockermanager = DockerManager()
         if host is None or len(host)==0:
             host = urlopen('http://ip.42.pl/raw').read()
-            self.pool = [DockerContainer(self, starting_ipv4_port, host, ipv6_prefix) for _ in range(max_slots)]
-        else:
-            self.pool = [DockerContainer(self, starting_ipv4_port, host, ipv6_prefix) for _ in range(max_slots)]
+        self.pool = [DockerContainer(self, starting_ipv4_port, dockermanager, host, ipv6_prefix) for _ in range(max_slots)]
         self._agg = agg
 
     def deallocate(self, container, resources):
