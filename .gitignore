@@ -4,3 +4,4 @@
 *.dat
 *gcf_config
 *delegate_config
+generate-AM-server-cert/server/

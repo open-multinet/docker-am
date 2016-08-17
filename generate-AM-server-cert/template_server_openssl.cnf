@@ -1,0 +1,129 @@
+[ ca ]
+# `man ca`
+default_ca = CA_default
+
+[ CA_default ]
+# Directory and file locations.
+dir               = #SERVER_DIR# 
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+# The root key and root certificate.
+private_key       = $dir/private/server.key.pem
+certificate       = $dir/certs/server.cert.pem
+
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/server.crl.pem
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+# SHA-1 is deprecated, so use SHA-2 instead.
+default_md        = sha256
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 375
+preserve          = no
+policy            = policy_loose
+
+[ policy_strict ]
+# The root CA should only sign intermediate certificates that match.
+# See the POLICY FORMAT section of `man ca`.
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ policy_loose ]
+# Allow the intermediate CA to sign a more diverse range of certificates.
+# See the POLICY FORMAT section of the `ca` man page.
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+# Options for the `req` tool (`man req`).
+default_bits        = 2048
+prompt              = yes
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+# SHA-1 is deprecated, so use SHA-2 instead.
+default_md          = sha256
+# Extension to add when the -x509 option is used.
+x509_extensions     = v3_ca
+req_extensions      = req_ext
+
+[ req_distinguished_name ]
+countryName                     = Country Name (2 letter code)
+countryName_min                 = 2
+countryName_max                 = 2
+stateOrProvinceName             = State or Province Name (full name)
+localityName                    = Locality Name (eg, city)
+0.organizationName              = Organization Name (eg, company)
+organizationalUnitName          = Organizational Unit Name (eg, section)
+# Use a friendly name here because its presented to the user. The server's DNS
+#   names are placed in Subject Alternate Names. Plus, DNS names here is deprecated
+#   by both IETF and CA/Browser Forums. If you place a DNS name here, then you 
+#   must include the DNS name in the SAN too (otherwise, Chrome and others that
+#   strictly follow the CA/Browser Baseline Requirements will fail).
+commonName                      = Common Name (Use a friendly humand readable name here. Ex: "MyOrganisation Docker AM Server". Server DNS name is allowed but not required.)
+emailAddress                    = Email Address
+
+[ v3_ca ]
+# Extensions for a typical CA (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+# You only need digitalSignature below. *If* you don't allow
+#   RSA Key transport (i.e., you use ephemeral cipher suites), then
+#   omit keyEncipherment because that's key transport.
+basicConstraints        = CA:FALSE
+keyUsage            = digitalSignature, keyEncipherment
+subjectAltName          = @server_alternate_names
+nsComment           = "OpenSSL Generated Self-Signed Server Certificate"
+
+[ req_ext ]
+subjectKeyIdentifier        = hash
+basicConstraints        = CA:FALSE
+keyUsage            = digitalSignature, keyEncipherment
+subjectAltName          = @server_alternate_names
+nsComment           = "OpenSSL Generated Self-Signed Server Certificate" 
+
+[ server_cert ]
+# Extensions for server certificates (`man x509v3_config`).
+basicConstraints = CA:FALSE
+nsCertType = server
+nsComment = "OpenSSL Generated Self-Signed Server Certificate"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName          = @server_alternate_names
+
+[ server_alternate_names ]
+DNS.1 = #DNS#
+URI.1 = #URI#
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, OCSPSigning
+
+

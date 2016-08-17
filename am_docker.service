@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 WorkingDirectory=/root/bootstrap-geni-am
-Environment="PYTHONPATH=gcf_testbedname_plugin/"
-ExecStart=/usr/bin/python2 geni-tools/src/gcf-am.py -V 3 -c gcf_testbedname_plugin/gcf_config
+Environment="PYTHONPATH=gcf_docker_plugin/"
+ExecStart=/usr/bin/python2 geni-tools/src/gcf-am.py -V 3 -c gcf_docker_plugin/gcf_config
 KillMode=process
 #Restart=on-failure
 
