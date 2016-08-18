@@ -330,7 +330,6 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                         resource = None
                         continue
                     if resource is None: #Dockermaster is empty
-                        available.remove(r)
                         continue #Search next available resource
                     try: #Resource returned by DockerMaster are not listed in "available" list, so ignore Exception
                         available.remove(resource)
