@@ -152,6 +152,8 @@ You can use it in this way but it's more convenient to configure a systemd servi
 
 Then edit the WorkingDirectory and ExecStart line to match to your configuration. The "--host" parameter should be an IP reachable from the AM, so a public IP or, if your AM is on the same network a private IP.
 
+Finally, do ```systemctl daemon-reload && systemctl start dockermanager.service``` and check with ```systemctl status dockermanager.service```
+
 ## Configure the AM
 
 Just edit ```bootstrap-geni-am/gcf_docker_plugin/delegate_config``` and add or edit a section to match the three parameters (host, password, port) with the parameters set above (on the remote)
