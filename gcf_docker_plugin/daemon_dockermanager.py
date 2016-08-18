@@ -3,7 +3,7 @@ import Pyro4
 from optparse import OptionParser
 import logging
 
-Pyro4.config.THREADPOOL_SIZE=100
+Pyro4.config.THREADPOOL_SIZE=500
 Pyro4.config.THREADPOOL_ALLOW_QUEUE = True
 
 parser = OptionParser()
@@ -20,8 +20,12 @@ if not options.host:
     logger.error("--host option is required. Most of the time it is the public or private IP of the host")
     exit(1)
 
+if not options.port:
+    port = 11999
+else:
+    port = options.port
 
-daemon = Pyro4.Daemon(port=11999, host="193.190.127.251")
+daemon = Pyro4.Daemon(port=options.port, host=options.host)
 
 if not options.password:
     logger.warning("No password provided, anyone on the network (all the Internet if 'host' is a public IP) could use this DockerManager")
