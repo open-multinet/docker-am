@@ -54,6 +54,7 @@ import threading
 import time
 import gcf.geni.am.am3 as am3
 import pickle
+import Pyro4
 
 from StringIO import StringIO
 from lxml import etree
@@ -150,11 +151,14 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             self._agg = Aggregate()
             config = ConfigParser.SafeConfigParser()
             config.read(os.path.dirname(os.path.abspath(__file__))+"/delegate_config")
-            #dockermanager = Pyro4.Pyro4.Proxy("PYRO:test@localhost:11999")
-            dockermanager = DockerManager()
             for r in config.sections():
-                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
-            #self._agg.add_resources([DockerMaster(self._agg, 20)])
+                if config.get(r, "host") is None or config.get(r, "host") == "":
+                    dockermanager = None
+                else:
+                    uri = "PYRO:dockermanager@"+config.get(r, "host")+":"+config.get(r, "port")
+                    dockermanager = Pyro4.Proxy(uri)
+                    dockermanager._pyroHmacKey = config.get(r, "password")
+                    self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "public_host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
             self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
