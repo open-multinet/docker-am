@@ -4,13 +4,19 @@ max_containers=20
 
 #a /64 or /80 prefix
 #If empty the IPV6 support will not be enable
-#ipv6_prefix=2001:06a8:1d80:0601::
+#for example : ipv6_prefix=2001:06a8:1d80:0601::
 ipv6_prefix=
 
-#IPV4 host returned by the manifest. Also used by the AM to launch command on the AM
+#Those parameters are used to connect to the DockerManager daemon using RMI.
 #If empty, means the dockermaster is on the same host than the AM.
-#If empty, http://ip.42.pl is used to get the public ipv4
 host=
+port=
+password=
+
+#This is the IPv4 returned in the manifest reply.  Also used by the AM to test connectivity to the container.
+#If empty, http://ip.42.pl/raw is used to get the public ipv4 (means the container is on the same host than the AM)
+#Notice : host and public_host can be identical most of the time, but sometimes the dockermaster daemon is only accessible throught LAN, so host will be the private IP and public_host the public one. 
+public_host=
 
 #Docker uses port forwarding to allow users to join containers with SSH. This is the first port used.
 #Default is 12000. For example the first container will be reachable with : ssh login@host -p 12000, the second 12001, ...

@@ -47,7 +47,8 @@ Each "section" (a section start with "[name\_of\_the\_section]") in this file re
 
 * max_containers : The maximum number of container hosted by your DockerMaster
 * ipv6_prefix : If you have an ipv6 address on your host set the prefix in /64 or /80 (for example : 2607:f0d0:1002:51::) and each container will get a ipv6 in this range
-* host : The ipv4 of your DockerMaster host (will be used to join containers with port forwarding and control the DockerMaster from the AM with SSH)
+* host, password and port : Parameters to connect to the dockermanager daemon (when using a remote dockermanager, see below)
+* public_host : The ipv4 of your DockerMaster host (will be used to join containers with port forwarding and control the DockerMaster from the AM with SSH)
 * starting\_ipv4\_port : This is the first range used by docker for port forwarding. For example if you set 12000, the first container should be reachable on port 12000, the second on port 12001, ... The AM uses the first port available from 12000 to 12000+max\_containers
 
 ## Configure a DockerMaster
@@ -119,6 +120,44 @@ INFO:cred-verifier:Adding trusted cert file ch-cert.pem
 INFO:cred-verifier:Adding trusted cert file ca-cert.pem
 INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
 ```
+
+# Configuring a remote DockerManager
+
+You can set up several DockerManager hosted on different physical machine in order to increase scalability (for example).
+
+## Configure the remote
+
+First of all you need to install dependancies on the remote host :
+
+```
+apt-get install python2.7 python-pip git
+pip install pyro4
+```
+
+And install docker-engine : https://docs.docker.com/engine/installation/
+
+Now download the source code repository :
+
+```
+git clone https://github.com/ArthurGarnier/bootstrap-geni-am.git
+```
+
+And try : ```python2 bootstrap-geni-am/gcf_docker_plugin/daemon_dockermanager.py --host 127.0.0.1```
+
+You should get a warning about not using any password and a URI the server listening on.
+
+You can use it in this way but it's more convenient to configure a systemd service. To do this, just copy the service file :
+
+```cp bootstrap-geni-am/dockermanager.service.sample /etc/systemd/system/dockermanager.service```
+
+Then edit the WorkingDirectory and ExecStart line to match to your configuration. The "--host" parameter should be an IP reachable from the AM, so a public IP or, if your AM is on the same network a private IP.
+
+## Configure the AM
+
+Just edit ```bootstrap-geni-am/gcf_docker_plugin/delegate_config``` and add or edit a section to match the three parameters (host, password, port) with the parameters set above (on the remote)
+
+Then delete ```data.dat``` and restart your AM
+
 
 # Additionnal informations
 
