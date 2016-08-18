@@ -158,7 +158,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     uri = "PYRO:dockermanager@"+config.get(r, "host")+":"+config.get(r, "port")
                     dockermanager = Pyro4.Proxy(uri)
                     dockermanager._pyroHmacKey = config.get(r, "password")
-                    self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "public_host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
+                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "public_host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
             self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
