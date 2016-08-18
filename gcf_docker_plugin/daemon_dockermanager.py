@@ -25,7 +25,7 @@ if not options.port:
 else:
     port = options.port
 
-daemon = Pyro4.Daemon(port=options.port, host=options.host)
+daemon = Pyro4.Daemon(port=int(options.port), host=options.host)
 
 if not options.password:
     logger.warning("No password provided, anyone on the network (all the Internet if 'host' is a public IP) could use this DockerManager")

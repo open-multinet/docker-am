@@ -1,0 +1,13 @@
+[Unit]
+Description=Standalone DockerManager allowing remote use by the AM
+After=network.target
+
+[Service]
+WorkingDirectory=/root/bootstrap-geni-am
+ExecStart=/usr/bin/python2 gcf_docker_plugin/daemon_dockermanager.py --host MY_IP --password MY_PASSWORD --port 11999
+KillMode=process
+#Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
