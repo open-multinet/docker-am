@@ -1,3 +1,17 @@
+# Supported Aggregate Manager features
+
+* Every basic feature (Allocate, Provision, Delete, Status, ListResources, Describe, Renew)
+* Some ```PerformOperationalAction``` call are supported
+	* ```geni_update_users``` : Update SSH authorized keys or add a user
+	* ```geni_reload``` : If you want to "reset" your container
+	* Other options have no effect
+* You can provide a sliver-type to get different kind of containers (for example limited memory or CPU container).
+* Install a custum docker image by providing a name from a DockerHub or a URL to a Dockerfile or a ZipFile containing a Dockerfile and dependencies.
+* Restart the AM without lost the state of slivers
+* Multiple physical host for Docker. That means you can increase the scalability easily by setting up a new "DockerMaster"
+* ```install``` and ```execute``` can be used to install a zipfile in a specific directory and execute some commands automatically when the container is ready
+* IPv6 per container can be configured in addition to the IPv4 port forwarding of the host
+
 # How to install the AM ?
 
 ## Dependencies
