@@ -70,10 +70,15 @@ class DockerManager():
                 return e.output
             build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
             try:
+                if building.get(imageName, None) is None:
+                    building[imageName] = threading.Lock()
+                building[imageName].acquire()
                 subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
                 subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             except subprocess.CalledProcessError, e:
                 return e.output
+            finally:
+                building[imageName].release()
         if ssh_port in locked_port:
             i=0
             while self.isContainerUp(ssh_port) == False:
