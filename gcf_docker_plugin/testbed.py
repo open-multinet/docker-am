@@ -588,6 +588,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     sliver.setAllocationState(STATE_GENI_ALLOCATED)
                     return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
                 i+=1
+        else:
+            return self.errorResult(am3.AM_API.BAD_ARGS, "No user provided")
         self.dumpState()
         result = dict(geni_rspec=self.manifest_rspec(the_slice.urn, provision=True),
                       geni_slivers=[s.status() for s in slivers])
@@ -891,6 +893,21 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     def manifest_rspec(self, slice_urn, provision=False):
         rspec = etree.parse(StringIO(self._slices[slice_urn].request_manifest))
         rspec.getroot().set("type", "manifest")
+        ns=rspec.getroot().nsmap.get(None)
+        
+        services = rspec.getroot().xpath("x:node/x:services", namespaces={'x':ns})
+        i_exec = 0
+        for s in services:
+            executes= s.xpath("x:execute", namespaces={'x':ns})
+            if len(executes) > 0:
+                for e in executes:
+                    tmp = etree.Element("{http://www.fed4fire.eu/docker_am}execute_logs")
+                    tmp.set("log","/tmp/startup-"+str(i_exec)+".txt")
+                    tmp.set("status","/tmp/startup-"+str(i_exec)+".status")
+                    tmp.set("command","/tmp/startup-"+str(i_exec)+".sh")
+                    e.getparent().remove(e)
+                    s.append(tmp)
+                    i_exec+=1
         for node in rspec.getroot().getchildren():
             for s in self._slices[slice_urn].slivers():
                 if node.get("client_id") == s.resource().external_id and node.get("component_manager_id") == self._my_urn:
@@ -899,7 +916,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     if provision:
                         services = None
                         for c in node.getchildren():
-                            if c.tag == "services":
+                            if c.tag == "{"+ns+"}"+"services":
                                 services = c
                                 break
                         if services is None:

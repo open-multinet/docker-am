@@ -327,7 +327,6 @@ class DockerManager():
             subprocess.check_output(['bash', '-c', cmd])
             os.remove(tmp)
             cmd = cmd_docker+"sudo sh -c '"+shell+" "+log_dir+"startup-"+str(next_nb)+".sh > "+log_dir+"startup-"+str(next_nb)+".txt'"
-            print cmd
             subprocess.check_output(['bash', '-c', cmd])
             cmd = cmd_docker+"sh -c 'echo \"0\" > "+log_dir+"startup-"+str(next_nb)+".status'"
             subprocess.check_output(['bash', '-c', cmd])
