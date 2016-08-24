@@ -30,7 +30,6 @@ from lxml import etree
 import uuid
 import subprocess
 import time
-import Pyro4
 
 class DockerContainer(Resource):
 
@@ -46,8 +45,6 @@ class DockerContainer(Resource):
         self.starting_ipv4_port=starting_ipv4_port
         self.image = None
         self.error = ''
-        #self.DockerManager = DockerManager()
-        #self.DockerManager = Pyro4.Proxy("PYRO:test@localhost:11999")
         self.DockerManager = dockermanager
         self.mac = self.DockerManager.randomMacAddress()
         if ipv6_prefix is not None and len(ipv6_prefix)>0:
@@ -81,7 +78,7 @@ class DockerContainer(Resource):
         if self.ssh_port==22 or not self.DockerManager.isContainerUp(self.ssh_port):
             self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
-    def provision(self, user, key):
+    def provision(self, user, keys):
         if self.DockerManager.isContainerUp(self.ssh_port):
             self.DockerManager.removeContainer(self.id)
         out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
@@ -90,7 +87,7 @@ class DockerContainer(Resource):
             return False
         else:
             self.error=''
-        out =  self.DockerManager.setupContainer(self.id, user, key)
+        out =  self.DockerManager.setupContainer(self.id, user, keys)
         if out is not True:
             self.error = out
         else:
