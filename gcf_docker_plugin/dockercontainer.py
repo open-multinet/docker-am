@@ -59,6 +59,7 @@ class DockerContainer(Resource):
 
     def deprovision(self):
         """Deprovision this resource at the resource provider."""
+        self.DockerManager.releasePort(self.ssh_port)
         self.DockerManager.removeContainer(self.id)
         self.users = dict()
         self.ssh_port=22

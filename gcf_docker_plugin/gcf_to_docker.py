@@ -22,13 +22,15 @@ building = dict()
 @Pyro4.expose
 class DockerManager():
 
-
+    #Return the number of running container
     def numberRunningContainer(self):
         cmd = "docker ps | grep -v '^CONTAINER' | wc -l"
         output = subprocess.check_output(['bash', '-c', cmd])
         output=output.strip().decode('utf-8')
-        return output
+        return int(output)
 
+    #Return the next port available on the host using netstat
+    #starting_port : From which port start to check
     def getNextPort(self, starting_port):
         _locked_port = list(locked_port)
         cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep -o \":[0-9]\\+$\" | grep -o [0-9]* | sort -n | uniq"
@@ -42,6 +44,7 @@ class DockerManager():
             expected+=1
         return expected
 
+    #Get the next port with a Lock (avoid concurrency issue) and add it to the locked_port array
     def reserveNextPort(self, starting_port):
         lock.acquire()
         port = self.getNextPort(starting_port)
@@ -49,7 +52,12 @@ class DockerManager():
         lock.release()
         return port
 
-    #image : Specific image to install, could be URL to a DockerFile or a zip or just the name from Docker Hub (eg debian:jessie). Always starts with "username::" (replace username)
+    #Start a new container
+    #id : Specific name to give to the container
+    #sliver_type : Kind of container (limited to 100M memory for example)
+    #ssh_port : Port to bind to port 22
+    #mac_address : Defined mac address of the container
+    #image : Specific image to install (See processImage() documentation)
     def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None, image=None):
         if ssh_port is None:
             ssh_port = reserveNextPort()
@@ -68,11 +76,12 @@ class DockerManager():
         except Exception as e:
             if "Unable to find image" not in e.output:
                 return e.output
+            #Case if jessie_gcf_ssh is not yet built
             build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
             try:
                 if building.get(imageName, None) is None:
                     building[imageName] = threading.Lock()
-                building[imageName].acquire()
+                building[imageName].acquire() #Don't run multiple build at the same time
                 subprocess.check_output(['bash', '-c', build]).decode('utf-8').strip()
                 subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             except subprocess.CalledProcessError, e:
@@ -81,13 +90,19 @@ class DockerManager():
                 building[imageName].release()
         if ssh_port in locked_port:
             i=0
-            while self.isContainerUp(ssh_port) == False:
+            while self.isContainerUp(ssh_port) == False: #Wait the container to listen before release the port
                 i+=1
                 time.sleep(1)
                 if i==45:
                     return "Container not up after 45 seconds. Something went wrong"
             locked_port.remove(ssh_port)
         return True
+
+    #Remove a port from locked ports list
+    #Have to be done if container start failed
+    def releasePort(self, port):
+        if port in locked_port:
+            locked_port.remove(port)
 
     def stopContainer(self, id):
         cmd = "docker stop " + str(id)
@@ -105,6 +120,8 @@ class DockerManager():
         except Exception as e:
             return e.output
 
+    #Check if a container is up using netstat
+    #In fact, check if the port is listenning
     def isContainerUp(self, port):
         cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep -o \":[0-9]\\+$\" | grep -o [0-9]* | grep -x "+str(port)
         try:
@@ -118,6 +135,8 @@ class DockerManager():
         removeContainer(id)
         startNew(id)
 
+    #Setup a user in the container
+    #ssh_keys : Array of public ssh keys to allow (authorized_keys file)
     def setupUser(self, id, username, ssh_keys):
         try:
             cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi' 2>&1"
@@ -136,6 +155,7 @@ class DockerManager():
     def setupContainer(self, id, username, ssh_keys):
         return self.setupUser(id, username, ssh_keys)
 
+    #Get the ssh_port used by a specific container
     def getPort(self, id):
         cmd = "docker ps --format {{.Names}}//{{.Ports}} --no-trunc | grep "+id
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
@@ -145,11 +165,13 @@ class DockerManager():
         else:
             return None
 
+    #Get list of user with an account in the container (with a home and authorized ssh key)
     def getUsers(self, id):
         cmd = "docker exec "+id+" find /home -name \"authorized_keys\" | grep \"/home/.*/.ssh/authorized_keys\" | cut -d'/' -f 3"
         out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         return filter(None, out.split('\n')) #Remove empty elements
 
+    #Check if docker is installed and accessible by the AM
     def checkDocker(self):
         cmd = "docker ps"
         try:
@@ -157,13 +179,15 @@ class DockerManager():
         except Exception, e:
             sys.stderr.write('Docker is not installed OR this user is not in the docker group OR the docker daemon is not started\n')
             exit(1)
-            
+
+    #Get IPv6 of a container 
     def getIpV6(self, id):
         cmd = "docker inspect "+id
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         output = json.loads(output)
         return output[0]['NetworkSettings']['GlobalIPv6Address']
 
+    #Predict Ipv6 using the ipv6 prefix and the mac address
     def computeIpV6(self, prefix, mac):
         ipv6 = prefix
         parts=mac.split(':')
@@ -172,17 +196,19 @@ class DockerManager():
         ipv6 = ipv6[:-1]
         return ipv6
 
-    """Returns a completely random Mac Address"""
+    #Returns a random Mac Address with the same prefix as Docker (02:42:ac:11)
     def randomMacAddress(self): 
         mac = [0x02, 0x42, 0xac, 0x11, random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
+    #Delete a docker built image
     def deleteImage(self, name):
         if name.startswith("urn") and len(name.split("::"))==2:
             name = hashlib.sha1(name).hexdigest()
         cmd = "docker rmi -f "+name
         subprocess.check_output(['bash', '-c', cmd])
-            
+
+    #Build a docker hub image with an OpenSSH server
     def buildSshImage(self, name):
         try:
             cmd = "mktemp"
@@ -198,14 +224,15 @@ class DockerManager():
             return True
         except subprocess.CalledProcessError, e:
             return e.output
-
-
+    
+    #Build the image given in parameter
+    #image : could be URL to a DockerFile or a zip or just the name from Docker Hub (eg debian:jessie). Always starts with "foo::" (foo is usually the slice urn) to make the name "private"
     def processImage(self, image):
         fullName = image.split("::")
         user = fullName[0]
         imageName = fullName[1]
         if imageName.startswith("http://") or imageName.startswith("https://"):
-            image = hashlib.sha1(image).hexdigest()
+            image = hashlib.sha1(image).hexdigest() #Hash the "URN::imagename" to avoid issue with docker
             cmd = "docker images --no-trunc --format {{.Repository}} | grep -x "+image
             try:
                 subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
@@ -229,10 +256,11 @@ class DockerManager():
                 building[image].release()
             return imageName
 
+    #Build image from a URL and set the name "fullname" in docker
     def buildExternalImage(self, url, fullName):
         tmpdir = tempfile.mkdtemp()
         self.dlfile(url, tmpdir)
-        if os.path.basename(url) == "Dockerfile":
+        if os.path.basename(url) == "Dockerfile": #If the target URL is a simple DockerFile
             pass
         elif os.path.basename(url).split(".")[-1] == "zip": #A zip containing /Dockerfile or /folder/Dockerfile (and other things)
             zipfile.ZipFile(tmpdir+"/"+os.path.basename(url)).extractall(tmpdir)
@@ -277,7 +305,7 @@ class DockerManager():
         shutil.rmtree(tmpdir)
         return True
         
-
+    #Download a file to the given path
     def dlfile(self, url, dest):
         try:
             f = urlopen(url)
@@ -290,6 +318,7 @@ class DockerManager():
         except URLError, e:
             logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
 
+    #Extract a tar.gz file given to the install_path in the container id
     def installCommand(self, id, url, install_path):
         cmd_docker = "docker exec "+id+" "
         filename = os.path.basename(url)
@@ -306,6 +335,11 @@ class DockerManager():
             return e.output.strip()
         return True
 
+    #Executes the command cmd with the shell 'shell' in the container id
+    #Creates 3 files in /tmp of the container : startup-[0-9].(status|txt|sh)
+    #.sh contains the command executed
+    #.status contains the return status of the command
+    #.txt return the output
     def executeCommand(self, id, shell, cmd):
         cmd_docker = "docker exec "+id+" "
         log_dir = "/tmp/"
