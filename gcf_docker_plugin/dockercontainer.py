@@ -24,6 +24,7 @@
 from __future__ import absolute_import
 
 from gcf_to_docker import DockerManager
+from extendedresource import ExtendedResource
 
 from gcf.geni.am.resource import Resource
 from lxml import etree
@@ -31,7 +32,7 @@ import uuid
 import subprocess
 import time
 
-class DockerContainer(Resource):
+class DockerContainer(ExtendedResource):
 
     DEFAULT_SLIVER_TYPE="dockercontainer"
     

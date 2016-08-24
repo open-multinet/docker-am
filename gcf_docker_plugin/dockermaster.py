@@ -30,8 +30,9 @@ from lxml import etree
 import uuid
 from urllib2 import urlopen
 from gcf_to_docker import DockerManager
+from extendedresource import ExtendedResource
 
-class DockerMaster(Resource):
+class DockerMaster(ExtendedResource):
     def __init__(self, agg, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None, dockermanager=None):
         super(DockerMaster, self).__init__(str(uuid.uuid4()), "dockermaster")
         if starting_ipv4_port is None or starting_ipv4_port<=1024:
