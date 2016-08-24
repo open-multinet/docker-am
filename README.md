@@ -17,8 +17,11 @@
 ## Dependencies
 
 ```
-apt-get install -y python2.7 python-lxml git python-m2crypto python-dateutil python-openssl libxmlsec1 xmlsec1 libxmlsec1-openssl libxmlsec1-dev
+apt-get install -y python2.7 python-lxml git python-m2crypto python-dateutil python-openssl libxmlsec1 xmlsec1 libxmlsec1-openssl libxmlsec1-dev python-pip
 ```
+
+```pip install pyro4```
+
 
 ## Download source code
 
@@ -135,7 +138,7 @@ INFO:cred-verifier:Adding trusted cert file ca-cert.pem
 INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
 ```
 
-# Configuring a remote DockerManager
+# Configuring a remote DockerManager (Optional)
 
 You can set up several DockerManager hosted on different physical machine in order to increase scalability (for example).
 
@@ -174,8 +177,20 @@ Just edit ```bootstrap-geni-am/gcf_docker_plugin/delegate_config``` and add or e
 
 Then delete ```data.dat``` and restart your AM
 
+# How to adapt this AM to your infrastructure ?
 
-# Additionnal informations
+If you want to test the AM with your hardware (not with Docker) you have to develop your own Python Class which represents your hardware.
+
+You can follow the docker model as example. It's based on three classes : dockermaster (dockermaster.py), dockercontainer (dockercontainer.py), and dockermanager (gcf_to_docker.py).
+
+* DockerMaster is more or less just a pool of DockerContainer, because a DockerMaster should be a unique physical machine
+* DockerContainer represent a container docker, with some informations like to ssh port, the ipv6, ...
+* DockerManager is just a generic class to manage docker from Python
+
+So, if you want to represent a physical machine which can be reserved by a user the Python class should be a merge between DockerMaster and DockerContainer
+
+
+# Additional informations
 
 * Objects are serialized in ```bootstrap-geni-am/data.dat```, so you can restart the AM without consequence
 * Slivers expiration is checked every 5 minutes, and on each API call
