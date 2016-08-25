@@ -138,6 +138,8 @@ INFO:cred-verifier:Adding trusted cert file ca-cert.pem
 INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
 ```
 
+Of course it's not C-BAS dependent and you can trust the certificate from any MA/SA. For example you can trust the MA/SA from iMinds, so you will be able to create a slice on wall2 and use it on your AM.
+
 # Configuring a remote DockerManager (Optional)
 
 You can set up several DockerManager hosted on different physical machine in order to increase scalability (for example).
@@ -181,13 +183,17 @@ Then delete ```data.dat``` and restart your AM
 
 If you want to test the AM with your hardware (not with Docker) you have to develop your own Python Class which represents your hardware.
 
-You can follow the docker model as example. It's based on three classes : dockermaster (dockermaster.py), dockercontainer (dockercontainer.py), and dockermanager (gcf_to_docker.py).
+You can follow the docker model as example. It is based on three classes : DockerMaster (dockermaster.py), DockerContainer (dockercontainer.py), and DockerManager (gcf\_to\_docker.py).
 
 * DockerMaster is more or less just a pool of DockerContainer, because a DockerMaster should be a unique physical machine
-* DockerContainer represent a container docker, with some informations like to ssh port, the ipv6, ...
+* DockerContainer represents a docker container, with some informations like to ssh port, the ipv6, ...
 * DockerManager is just a generic class to manage docker from Python
 
-So, if you want to represent a physical machine which can be reserved by a user the Python class should be a merge between DockerMaster and DockerContainer
+So, if you want to represent a physical machine which can be reserved by a user the Python class should be a merge between ```DockerMaster``` and ```DockerContainer```, you should inherit your class from ```ExtendedResource```. This class is formed of all used methods by the AM, so you have to implement at least those methods (also have a look to ```geni-tools/src/gcf/geni/am/resource.py```)
+
+Note : You should implement a generic wrapper for your infrastructure like ```DockerManager```, it's easier to maintain, especially if you have different kind of resource.
+
+Once your resources are ready, you have to init them in ```testbed.py``` in the ```_init_``` method by adding them to the aggregate and delete ```data.dat``` if exists.
 
 
 # Additional informations
