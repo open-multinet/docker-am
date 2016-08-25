@@ -181,7 +181,7 @@ Then delete ```data.dat``` and restart your AM
 
 # How to adapt this AM to your infrastructure ?
 
-If you want to test the AM with your hardware (not with Docker) you have to develop your own Python Class which represents your hardware.
+If you want to test the AM with your hardware (not with Docker or in addition to Docker) you have to develop your own Python Class which represents your hardware.
 
 You can follow the docker model as example. It is based on three classes : DockerMaster (dockermaster.py), DockerContainer (dockercontainer.py), and DockerManager (gcf\_to\_docker.py).
 
