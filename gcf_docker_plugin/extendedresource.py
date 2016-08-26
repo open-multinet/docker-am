@@ -39,7 +39,7 @@ class ExtendedResource(Resource):
         pass
 
     #Set the hardware in the original state (reinstall OS for example)
-    def deprovision():
+    def deprovision(self):
         pass
 
     #Returns the ssh port to reach the resource
