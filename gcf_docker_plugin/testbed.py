@@ -300,6 +300,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     sliver_types.append(t.get("name"))
         ALLOCATE_LOCK.acquire()
         available = self.resources(available=True, sliver_types=sliver_types)
+        available = sorted(available, key=lambda a: a.size(), reverse=True)
+                
         # Note: This only handles unbound nodes. Any attempt by the client
         # to specify a node is ignored.
         unbound = list()
@@ -350,6 +352,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             resource.sliver_type=sliver_type
             resource.image=image
             resources.append(resource)
+            available = sorted(available, key=lambda a: a.size(), reverse=True)
 
         ALLOCATE_LOCK.release()
         # determine max expiration time from credentials

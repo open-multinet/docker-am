@@ -75,6 +75,10 @@ class ExtendedResource(Resource):
                 ret.append(auth)
             return ret
 
+    #Only used if your resource is a pool of resource, like DockerMaster
+    def size(self):
+        return 1
+
     #Set the instance in the original state
     def reset(self):
         super(ExtendedResource, self).reset()

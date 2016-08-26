@@ -74,5 +74,8 @@ class DockerMaster(ExtendedResource):
                     return r
             return None #No id match
         return self.pool.pop(0)
+
+    def size(self):
+        return len(self.pool)
         
             
