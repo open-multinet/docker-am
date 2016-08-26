@@ -196,6 +196,18 @@ Note : You should implement a generic wrapper for your infrastructure like ```Do
 
 Once your resources are ready, you have to init them in ```testbed.py``` in the ```_init_``` method by adding them to the aggregate and delete ```data.dat``` if exists.
 
+# Development notes
+
+If you want make some contribution to this software, here there is a quick explanation of each file :
+
+* testbed.py : The aggregate manager main class, handle calls from the API
+* dockermaster.py : Docker Master is a pool of docker container, it is called to get some DockerContainer instances
+* dockercontainer.py : Represents a Container with methods to manage it
+* gcf_to_docker.py : It's the DockerManager class, used as generic wrapper for Docker in Python, mostly used by DockerContainer
+* resourceexample.py : Just a fake resource to help you to understand how to develop your own resource
+* extendedresource.py : A generic resource with more methods than resource.py (from the geni-tools repo)
+* daemon_dockermanager.py : It's the daemon used to create a remote DockerMaster using Pyro4 framework. 
+
 
 # Additional informations
 
