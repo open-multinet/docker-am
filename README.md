@@ -190,6 +190,7 @@ You can follow the docker model as example. It is based on three classes : Docke
 * DockerManager is just a generic class to manage docker from Python
 
 So, if you want to represent a physical machine which can be reserved by a user the Python class should be a merge between ```DockerMaster``` and ```DockerContainer```, you should inherit your class from ```ExtendedResource```. This class is formed of all used methods by the AM, so you have to implement at least those methods (also have a look to ```geni-tools/src/gcf/geni/am/resource.py```)
+To help you, you can use the class "ResourceExample", it's fake resource. You can enable this resource in ```testbed.py > _init_``` but by default nothing is really done. To activate it, edit the file ```resourceexample.py``` find lines with ```ssh="exit 0;"``` and follow instruction on the line above. Note that this resource use SSH, so your AM should have SSH access to the node aimed by the ResourceExample.
 
 Note : You should implement a generic wrapper for your infrastructure like ```DockerManager```, it's easier to maintain, especially if you have different kind of resource.
 
