@@ -38,6 +38,10 @@ class ExtendedResource(Resource):
         self.available = True
         pass
 
+    #Set the hardware in the original state (reinstall OS for example)
+    def deprovision():
+        pass
+
     #Returns the ssh port to reach the resource
     def getPort(self):
         return self.ssh_port
@@ -70,6 +74,11 @@ class ExtendedResource(Resource):
                 auth.set("username", login)
                 ret.append(auth)
             return ret
+
+    #Set the instance in the original state
+    def reset(self):
+        super(ExtendedResource, self).reset()
+        self.error = ''
 
     #A "blocking" method which return True when the SSH connection is available = The node is fully ready for the user
     #Should return True, or set self.error with an error message and return False

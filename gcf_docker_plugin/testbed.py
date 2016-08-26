@@ -62,6 +62,7 @@ from gcf.geni.am.aggregate import Aggregate
 from dockercontainer import DockerContainer
 from dockermaster import DockerMaster
 from gcf_to_docker import DockerManager
+from resourceexample import ResourceExample
 from gcf import geni
 from gcf.geni.util.tz_util import tzd
 from gcf.geni.util.urn_util import publicid_to_urn
@@ -159,6 +160,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     dockermanager = Pyro4.Proxy(uri)
                     dockermanager._pyroHmacKey = config.get(r, "password")
                 self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "public_host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
+                #Here you can add the example resource. (You have to delete data.dat to reload resources)
+                #self._agg.add_resources([ResourceExample(str(uuid.uuid4()), "127.0.0.1")])
             self.dumpState()
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
