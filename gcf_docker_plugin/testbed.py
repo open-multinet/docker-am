@@ -318,6 +318,10 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         images_to_delete = list()
         for elem in unbound:
             client_id = elem.getAttribute('client_id')
+            if client_id == "" or client_id is None:
+                return self.errorResult(am3.AM_API.BAD_ARGS, "A node does not have a client_id")
+            if len(elem.getElementsByTagName('sliver_type')) < 1:
+                return self.errorResult(am3.AM_API.BAD_ARGS, "The node '{}' does not have a sliver_type".format(client_id))
             sliver_type = elem.getElementsByTagName('sliver_type')[0]
             image = None
             if sliver_type != "":
