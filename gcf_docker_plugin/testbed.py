@@ -864,7 +864,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         out = super(ReferenceAggregateManager,self).Renew(urns, credentials, expiration_time, options)
         self.dumpState()
-        return self.successResult(out)
+        return out
 
     def advert_resource(self, resource):
         return resource.genAdvertNode(self._urn_authority, self._my_urn)
