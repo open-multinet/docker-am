@@ -135,6 +135,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     # that are trusted to sign credentials
     def __init__(self, root_cert, urn_authority, url, **kwargs):
         super(ReferenceAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
+        self._hrn = urn_authority
         self._urn_authority = "IDN "+urn_authority #IDN docker.ilabt.iminds.be
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
         self.DockerManager = DockerManager()
@@ -605,6 +606,40 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         result = dict(geni_rspec=self.manifest_rspec(the_slice.urn, provision=True),
                       geni_slivers=[s.status() for s in slivers])
         return self.successResult(result)
+
+    def GetVersion(self, options):
+        '''Specify version information about this AM. That could
+        include API version information, RSpec format and version
+        information, etc. Return a dict.'''
+        self.logger.info("Called GetVersion")
+        self.expire_slivers()
+        reqver = [dict(type="GENI",
+                       version="3",
+                       schema="http://www.geni.net/resources/rspec/3/request.xsd",
+                       namespace="http://www.geni.net/resources/rspec/3",
+                       extensions=[])]
+        adver = [dict(type="GENI",
+                      version="3",
+                      schema="http://www.geni.net/resources/rspec/3/ad.xsd",
+                      namespace="http://www.geni.net/resources/rspec/3",
+                      extensions=[])]
+        api_versions = dict()
+        api_versions[str(self._api_version)] = self._url
+        credential_types = [dict(geni_type = Credential.SFA_CREDENTIAL_TYPE,
+                                 geni_version = "3")]
+        versions = dict(geni_api=self._api_version,
+                        geni_api_versions=api_versions,
+                        hrn=self._hrn,
+                        urn=self._my_urn,
+                        geni_am_type='gcf',
+                        geni_am_code=GCF_VERSION,
+                        geni_request_rspec_versions=reqver,
+                        geni_ad_rspec_versions=adver,
+                        geni_credential_types=credential_types)
+        result = self.successResult(versions)
+        # Add the top-level 'geni_api' per the AM API spec.
+        result['geni_api'] = versions['geni_api']
+        return result
 
     def PerformOperationalAction(self, urns, credentials, action, options):
         """Peform the specified action on the set of objects specified by
