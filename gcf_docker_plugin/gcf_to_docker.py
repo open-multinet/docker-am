@@ -94,6 +94,8 @@ class DockerManager():
             cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -P -t "+imageName+" 2>&1"
         elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -P -t "+imageName+" 2>&1"
+        elif sliver_type == "docker-container-with-tunnel":
+            cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 --cap-add=NET_ADMIN --device=/dev/net/tun -P -t "+imageName+" 2>&1"
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except Exception as e:
