@@ -57,6 +57,8 @@ import gcf.geni.am.am3 as am3
 import pickle
 import Pyro4
 
+import pprint
+
 from StringIO import StringIO
 from lxml import etree
 from gcf.geni.am.aggregate import Aggregate
@@ -526,8 +528,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         # Configure user and ssh keys on nodes (dockercontainer)
 
-        def thread_provisionning(sliver, user, keys):
-            if sliver.resource().provision(user, keys) is not True:
+        def thread_provisionning(sliver):
+            if sliver.resource().provision() is not True:
                 sliver.setOperationalState(OPSTATE_GENI_FAILED)
                 sliver.resource().deprovision()
                 return
@@ -578,30 +580,35 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 return ret
 
 
+        user_keys_dict = dict()
         if 'geni_users' in options:
             i=0
             for user in options['geni_users']:
                 if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
-                    arr_threads = list()
-                    slivers_tmp = list(slivers)
-                    for sliver in slivers:
-                        if sliver.operationalState() == OPSTATE_GENI_CONFIGURING:
-                            slivers_tmp.remove(sliver)
-                            continue
-                        sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
-                        arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[urn.URN(urn=user['urn']).getName(), user['keys']]))
-                        arr_threads[-1].start()
-                    for t in arr_threads:
-                        t.join()
-                    for sliver in slivers_tmp:
-                        threading.Thread(target=thread_provisionning, args=[sliver, urn.URN(urn=user['urn']).getName(), user['keys']]).start()
-                else:
-                    sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
-                    sliver.setAllocationState(STATE_GENI_ALLOCATED)
-                    return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
+                    user_keys_dict[urn.URN(urn=user['urn']).getName()] = user['keys']
                 i+=1
+
+        if user_keys_dict:
+            arr_threads = list()
+            slivers_tmp = list(slivers)
+            for sliver in slivers:
+                if sliver.operationalState() == OPSTATE_GENI_CONFIGURING:
+                    slivers_tmp.remove(sliver)
+                    continue
+                sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
+                self.logger.info('DockerContainer.self for preprovision is ' + pprint.PrettyPrinter(indent=4).pformat(vars(sliver.resource())))
+                arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[user_keys_dict]))
+                arr_threads[-1].start()
+            for t in arr_threads:
+                t.join()
+            for sliver in slivers_tmp:
+                threading.Thread(target=thread_provisionning, args=[sliver]).start()
+            #else:
+            #    sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
+            #    sliver.setAllocationState(STATE_GENI_ALLOCATED)
+            #    return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
         else:
-            return self.errorResult(am3.AM_API.BAD_ARGS, "No user provided")
+            return self.errorResult(am3.AM_API.BAD_ARGS, "No user (with SSH key) provided")
         self.dumpState()
         result = dict(geni_rspec=self.manifest_rspec(the_slice.urn, provision=True),
                       geni_slivers=[s.status() for s in slivers])
@@ -703,21 +710,12 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                                     "\n".join(errors.values()))
 
         def thread_restart(sliver):
-            users = list(sliver.resource().users.keys())
-            default_user = users.pop()
-            ret = sliver.resource().provision(default_user, sliver.resource().users[default_user])
+            ret = sliver.resource().provision()
             if ret is not True:
                 sliver.resource().error = ret
                 sliver.setOperationalState(OPSTATE_GENI_FAILED)
                 self.dumpState()
                 return
-            for u in users:
-                ret = sliver.resource().updateUser(u, sliver.resource().users[u])
-                if ret is not True:
-                    sliver.resource().error = ret
-                    sliver.setOperationalState(OPSTATE_GENI_FAILED)
-                    self.dumpState()
-                    return
             sliver.resource().checkSshConnection()
             sliver.setOperationalState(OPSTATE_GENI_READY)
             self.dumpState()
@@ -742,9 +740,17 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     and sliver.operationalState() in ostates):
                     sliver.setOperationalState(OPSTATE_GENI_NOT_READY)
             elif (action == 'geni_update_users'):
-                for u in options['geni_users']:
-                    name = urn.URN(urn=u['urn']).getName()
-                    sliver.resource().updateUser(name, u['keys'])
+                user_keys_dict = dict()
+                if 'geni_users' in options:
+                    i=0
+                    for user in options['geni_users']:
+                        if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
+                            user_keys_dict[urn.URN(urn=user['urn']).getName()] = user['keys']
+                        i+=1
+                    sliver.resource().updateUser(user_keys_dict)
+                #for u in options['geni_users']:
+                #    name = urn.URN(urn=u['urn']).getName()
+                #    sliver.resource().updateUser(name, u['keys'])
             else:
                 # This should have been caught above
                 msg = "Unsupported: action %s is not supported" % (action)

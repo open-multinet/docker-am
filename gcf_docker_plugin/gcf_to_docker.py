@@ -177,8 +177,12 @@ class DockerManager():
         except subprocess.CalledProcessError, e:
             return e.output
 
-    def setupContainer(self, id, username, ssh_keys):
-        return self.setupUser(id, username, ssh_keys)
+    def setupContainer(self, id, user_keys_dict):
+        for username, ssh_keys in user_keys_dict.items():
+            res = self.setupUser(id, username, ssh_keys)
+            if res is not True:
+                return res
+        return True
 
     #Get the ssh_port used by a specific container
     def getPort(self, id):
