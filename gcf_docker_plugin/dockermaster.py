@@ -58,6 +58,7 @@ class DockerMaster(ExtendedResource):
         r.set("exclusive", "false")
         etree.SubElement(r, "sliver_type").set("name", "docker-container")
         etree.SubElement(r, "sliver_type").set("name", "docker-container_100M")
+        etree.SubElement(r, "sliver_type").set("name", "docker-container-with-tunnel")
         hardware = etree.SubElement(r, "hardware_type")
         hardware.set("name", "docker_cluster")
         etree.SubElement(hardware, "{http://www.protogeni.net/resources/rspec/ext/emulab/1}node_type").set("type_slots", str(len(self.pool)))

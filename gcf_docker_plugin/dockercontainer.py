@@ -40,7 +40,7 @@ class DockerContainer(ExtendedResource):
         super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
         self._agg = agg
         self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
-        self.users=dict()
+        self.user_keys_dict=dict()
         self.ssh_port=22
         self.host = host
         self.starting_ipv4_port=starting_ipv4_port
@@ -59,7 +59,7 @@ class DockerContainer(ExtendedResource):
         """Deprovision this resource at the resource provider."""
         self.DockerManager.releasePort(self.ssh_port)
         self.DockerManager.removeContainer(self.id)
-        self.users = dict()
+        self.user_keys_dict = dict()
         self.ssh_port=22
         
     def deallocate(self):
@@ -71,15 +71,14 @@ class DockerContainer(ExtendedResource):
         return self.ssh_port
 
     def getUsers(self):
-        return self.users.keys()
+        return self.user_keys_dict.keys()
 
-    def preprovision(self, user, ssh_keys):
-        if user not in self.users.keys():
-            self.users[user]=ssh_keys
+    def preprovision(self, extra_user_keys_dict):
+        self.user_keys_dict.update(extra_user_keys_dict)
         if self.ssh_port==22 or not self.DockerManager.isContainerUp(self.ssh_port):
             self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
-    def provision(self, user, keys):
+    def provision(self):
         if self.DockerManager.isContainerUp(self.ssh_port):
             self.DockerManager.removeContainer(self.id)
         out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
@@ -88,7 +87,7 @@ class DockerContainer(ExtendedResource):
             return False
         else:
             self.error=''
-        out =  self.DockerManager.setupContainer(self.id, user, keys)
+        out = self.DockerManager.setupContainer(self.id, self.user_keys_dict)
         if out is not True:
             self.error = out
         else:
@@ -96,10 +95,14 @@ class DockerContainer(ExtendedResource):
         return True
         
 
-    def updateUser(self, user, keys):
-        if user not in self.users.keys():
-            self.users[user]=keys
-        return self.DockerManager.setupUser(self.id, user, keys)
+    def updateUser(self, new_user_keys_dict):
+        for user, keys in new_user_keys_dict.items():
+            if user not in self.user_keys_dict.keys():
+                res = self.DockerManager.setupUser(self.id, user, keys)
+                if res is not True:
+                    return res
+                self.user_keys_dict[user]=keys
+        return True
 
     def manifestAuth(self):
         if len(self.getUsers())==0:
