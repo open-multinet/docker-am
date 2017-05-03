@@ -57,8 +57,6 @@ import gcf.geni.am.am3 as am3
 import pickle
 import Pyro4
 
-import pprint
-
 from StringIO import StringIO
 from lxml import etree
 from gcf.geni.am.aggregate import Aggregate
@@ -596,7 +594,6 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     slivers_tmp.remove(sliver)
                     continue
                 sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
-                self.logger.info('DockerContainer.self for preprovision is ' + pprint.PrettyPrinter(indent=4).pformat(vars(sliver.resource())))
                 arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[user_keys_dict]))
                 arr_threads[-1].start()
             for t in arr_threads:

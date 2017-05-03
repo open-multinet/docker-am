@@ -31,7 +31,6 @@ from lxml import etree
 import uuid
 import subprocess
 import time
-import pprint
 
 class DockerContainer(ExtendedResource):
 
@@ -73,9 +72,6 @@ class DockerContainer(ExtendedResource):
 
     def getUsers(self):
         return self.user_keys_dict.keys()
-
-    #def __repr__(self):
-    #    return 'DockerContainer with user_keys_dict - '+ pprint.PrettyPrinter(indent=4).pformat(self.user_keys_dict)
 
     def preprovision(self, extra_user_keys_dict):
         self.user_keys_dict.update(extra_user_keys_dict)
