@@ -4,5 +4,5 @@
 *.dat
 *gcf_config
 *delegate_config
-*docker_am
+*docker_am_config
 generate-AM-server-cert/server/
