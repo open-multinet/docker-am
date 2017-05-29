@@ -47,18 +47,23 @@ Two files are used to configure the AM.
 
 ### gcf_config
 
+This file is for the generic GCF configuration. This is the basic AM setup. 
+The docker AM specific functionality is activated by setting ```delegate``` to ```testbed.DockerAggregateManager```
+
 Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/gcf_config```
 
 * base_name : Generally the name of your machine. This is the name used in the URN (urn:publicid:IDN+docker.ilabt.iminds.be+)
 * rootcadir : A directory where your trusted root certificates are (wall2.pem for example)
 * host : This should be the DNS name of the server. It is not only used for binding the server socket, it is also used in the GetVersion reply as server URL. 
 * port : You are free to choose a port. 443 is recommended (because it is infrequently blocked by client side firewalls).
-* delegate : Must be = testbed.ReferenceAggregateManager
+* delegate : Must be = ```testbed.DockerAggregateManager```
 * keyfile and certfile = Field used to create AM certificate
 
-### delegate_config
+### docker_am_config
 
-Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/delegate_config```
+This is the configuration that is specific for the docker AM.
+
+Path of this file : ```bootstrap-geni-am/gcf\_docker\_plugin/docker_am_config```
 
 Each "section" (a section start with "[name\_of\_the\_section]") in this file represents a DockerMaster (a dockermaster host one or more containers). If you want to configure multiple DockerMaster just duplicate the first section and change the name. Then, configure parameters :
 
@@ -175,7 +180,7 @@ Finally, do ```systemctl daemon-reload && systemctl start dockermanager.service`
 
 ## Configure the AM
 
-Just edit ```bootstrap-geni-am/gcf_docker_plugin/delegate_config``` and add or edit a section to match the three parameters (host, password, port) with the parameters set above (on the remote)
+Just edit ```bootstrap-geni-am/gcf_docker_plugin/docker_am_config``` and add or edit a section to match the three parameters (host, password, port) with the parameters set above (on the remote)
 
 Then delete ```data.dat``` and restart your AM
 

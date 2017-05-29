@@ -34,12 +34,16 @@ import time
 
 class DockerContainer(ExtendedResource):
 
-    DEFAULT_SLIVER_TYPE="dockercontainer"
+    DEFAULT_SLIVER_TYPE='docker-container'
     
-    def __init__(self, agg, starting_ipv4_port, dockermanager, host="localhost", ipv6_prefix=None):
-        super(DockerContainer, self).__init__(str(uuid.uuid4()), "docker-container")
-        self._agg = agg
-        self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
+    def __init__(self, dockermaster, starting_ipv4_port, dockermanager, host="localhost", ipv6_prefix=None):
+        """
+
+        :param dockermaster: The parent DockerMaster or None if there is none
+        :type dockermaster: DockerMaster
+        """
+        super(DockerContainer, self).__init__(str(uuid.uuid4()), [ DockerContainer.DEFAULT_SLIVER_TYPE ])
+        self.dockermaster = dockermaster
         self.user_keys_dict=dict()
         self.ssh_port=22
         self.host = host
@@ -53,19 +57,21 @@ class DockerContainer(ExtendedResource):
         else:
             self.ipv6=None
         self.DockerManager.checkDocker()
-        
+        self.is_proxy = False
 
     def deprovision(self):
         """Deprovision this resource at the resource provider."""
+        super(DockerContainer, self).deprovision()
         self.DockerManager.releasePort(self.ssh_port)
         self.DockerManager.removeContainer(self.id)
         self.user_keys_dict = dict()
         self.ssh_port=22
         
     def deallocate(self):
+        super(DockerContainer, self).deallocate()
         self.available=True
-        self.sliver_type = DockerContainer.DEFAULT_SLIVER_TYPE
-        self._agg.deallocate(container=None, resources=[self])
+        if (self.dockermaster is not None):
+            self.dockermaster.onDeallocateContainer(container=None, resources=[self])
 
     def getPort(self):
         return self.ssh_port
@@ -74,14 +80,20 @@ class DockerContainer(ExtendedResource):
         return self.user_keys_dict.keys()
 
     def preprovision(self, extra_user_keys_dict):
+        super(DockerContainer, self).preprovision(extra_user_keys_dict)
         self.user_keys_dict.update(extra_user_keys_dict)
         if self.ssh_port==22 or not self.DockerManager.isContainerUp(self.ssh_port):
             self.ssh_port = self.DockerManager.reserveNextPort(self.starting_ipv4_port)
 
     def provision(self):
+        super(DockerContainer, self).provision()
         if self.DockerManager.isContainerUp(self.ssh_port):
             self.DockerManager.removeContainer(self.id)
-        out = self.DockerManager.startNew(id=self.id, sliver_type=self.sliver_type, ssh_port=self.ssh_port, mac_address=self.mac, image=self.image)
+        out = self.DockerManager.startNew(id=self.id,
+                                          sliver_type=self.chosen_sliver_type,
+                                          ssh_port=self.ssh_port,
+                                          mac_address=self.mac,
+                                          image=self.image)
         if out is not True:
             self.error = out
             return False
@@ -93,11 +105,17 @@ class DockerContainer(ExtendedResource):
         else:
             self.error=''
         return True
-        
 
-    def updateUser(self, new_user_keys_dict):
+    def restart(self):
+        """
+            Restart the resource without reloading the file system
+        """
+        super(DockerContainer, self).restart()
+        self.DockerManager.restartContainer(self.id)
+
+    def updateUser(self, new_user_keys_dict, force=False):
         for user, keys in new_user_keys_dict.items():
-            if user not in self.user_keys_dict.keys():
+            if force or user not in self.user_keys_dict.keys():
                 res = self.DockerManager.setupUser(self.id, user, keys)
                 if res is not True:
                     return res
@@ -105,6 +123,7 @@ class DockerContainer(ExtendedResource):
         return True
 
     def manifestAuth(self):
+        super(DockerContainer, self).manifestAuth()
         if len(self.getUsers())==0:
             return []
         else:
@@ -127,25 +146,21 @@ class DockerContainer(ExtendedResource):
 
             
     def genAdvertNode(self, _urn_authority, _my_urn):
-        r = etree.Element("node")
-        resource_id = str(self.id)
-        resource_available = str(self.available).lower()
-        resource_urn = self.urn(_urn_authority)
-        r.set("component_manager_id", _my_urn)
-        r.set("component_name", resource_id)
-        r.set("component_id", resource_urn)
-        r.set("exclusive", "true")
-        etree.SubElement(r, "sliver_type").set("name", self.sliver_type)
-        etree.SubElement(r, "available").set("now", resource_available)
+        r = super(DockerContainer, self).genAdvertNode(_urn_authority, _my_urn)
         return r
 
-    def reset(self):
-        super(DockerContainer, self).reset()
-        self._agg.deallocate(container=None, resources=[self])
-        self.image = None
-        self.error = ''
+    # def reset(self):
+    #     super(DockerContainer, self).reset()
+    #     self._agg.deallocate(container=None, resources=[self])
+    #     self.image = None
+    #     self.error = ''
 
-    def checkSshConnection(self):
+    def waitForSshConnection(self):
+        """
+
+        :rtype: bool
+        """
+        super(DockerContainer, self).waitForSshConnection()
         connect = False
         cmd = "nc -z "+self.host+" "+str(self.ssh_port)
         retry = 20

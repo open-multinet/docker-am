@@ -45,8 +45,8 @@ building = dict()
 @Pyro4.expose
 class DockerManager():
 
-    #Return the number of running container
-    def numberRunningContainer(self):
+    #Return the number of running containers
+    def getRunningContainerCount(self):
         cmd = "docker ps | grep -v '^CONTAINER' | wc -l"
         output = subprocess.check_output(['bash', '-c', cmd])
         output=output.strip().decode('utf-8')
@@ -89,13 +89,15 @@ class DockerManager():
         if image is not None:
             imageName=self.processImage(image)
             if not re.match(r'[a-fA-F0-9]{40}', imageName) and image.split("::")[1]!=imageName: #An error occured during processImage
-                return imageName
+                raise Exception("Invalid image name: %s" % imageName)
         if sliver_type=="docker-container":
             cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -P -t "+imageName+" 2>&1"
         elif sliver_type == "docker-container_100M":
             cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 -m 100M -P -t "+imageName+" 2>&1"
         elif sliver_type == "docker-container-with-tunnel":
             cmd = "docker run -d --mac-address "+mac_address+" --name "+uid+" -p " + str(ssh_port) + ":22 --cap-add=NET_ADMIN --device=/dev/net/tun -P -t "+imageName+" 2>&1"
+        else:
+            raise Exception("Internal error: no known sliver_type chosen: %s" % sliver_type)
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
         except Exception as e:
@@ -122,6 +124,14 @@ class DockerManager():
                     return "Container not up after 45 seconds. Something went wrong"
             locked_port.remove(ssh_port)
         return True
+
+    def restartContainer(self, id):
+        cmd = "docker restart "+str(id)+" 2>&1"
+        try:
+            subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
+            return True
+        except Exception as e:
+            return False
 
     #Remove a port from locked ports list
     #Have to be done if container start failed

@@ -33,7 +33,7 @@ class ResourceExample(ExtendedResource):
     SLIVER_TYPE = "myresourceexample"
     
     def __init__(self, rid, host="MYDOMAIN.com"):
-        super(ExtendedResource, self).__init__(rid, self.SLIVER_TYPE)
+        super(ResourceExample, self).__init__(rid, [ self.SLIVER_TYPE ])
         self.users=dict()
         self.ssh_port=22
         self.error = ""
@@ -41,16 +41,23 @@ class ResourceExample(ExtendedResource):
 
     def genAdvertNode(self, _urn_authority, _my_urn):
         r = super(ResourceExample, self).genAdvertNode(_urn_authority, _my_urn)
+        r.set("exclusive", "true")
         etree.SubElement(r, "sliver_type").set("name", self.SLIVER_TYPE)
         return r
 
-    def getResource(self, component_id=None):
+    def matchResource(self, sliver_type=None, component_id=None, exclusive=None):
+        #require exclusive resources
+        if exclusive is not None and not exclusive:
+            return None
+        if sliver_type is not None and sliver_type != self.SLIVER_TYPE:
+            return None
         if component_id is not None:
             if component_id != self.id:
                 return None
         return self
 
     def deallocate(self):
+        super(ResourceExample, self).deallocate()
         self.available = True
         self.users = dict()
 
@@ -60,11 +67,13 @@ class ResourceExample(ExtendedResource):
     def getUsers(self):
         return self.users.keys()
 
-    def preprovision(self, user, ssh_keys):
+    def preprovision(self, extra_user_keys_dict, chosen_sliver_type):
+        super(ResourceExample, self).preprovision(extra_user_keys_dict, chosen_sliver_type)
         if user not in self.users.keys():
             self.users[user]=ssh_keys
 
-    def provision(self, user, keys):
+    def provision(self):
+        super(ResourceExample, self).provision()
         #Assuming the AM have SSH root access to the node and the node is up
         #Setup users
         for username in self.users.keys():
@@ -85,6 +94,7 @@ class ResourceExample(ExtendedResource):
             
 
     def manifestAuth(self):
+        super(ResourceExample, self).deprovision()
         if len(self.getUsers())==0:
             return []
         else:
@@ -99,7 +109,8 @@ class ResourceExample(ExtendedResource):
             return ret
 
     #A blocking (while ...) method. Return True when the resource is up and ready, or False if you set a timeout
-    def checkSshConnection(self):
+    def waitForSshConnection(self):
+        super(ResourceExample, self).waitForSshConnection()
         try:
             #ssh = "ssh root@"+self.host+" -p "+str(self.ssh_port)
             #!! Do nothing !! If you want to run this command, comment the live below and uncomment the line above
