@@ -37,6 +37,10 @@ The GENI AM API is defined in the AggregateManager class.
 from __future__ import absolute_import
 
 import sys
+from xml.dom.minicompat import NodeList
+
+from extendedresource import ExtendedResource, FIXED_PROXY_USER
+
 sys.path.insert(1, '../geni-tools/src')
 
 import base64
@@ -125,46 +129,113 @@ OPSTATE_GENI_READY = am3.OPSTATE_GENI_READY
 OPSTATE_GENI_READY_BUSY = am3.OPSTATE_GENI_READY_BUSY
 OPSTATE_GENI_FAILED = am3.OPSTATE_GENI_FAILED
 
+CREATE_AUTOMATIC_PROXY = True
+
 EXPIRE_LOCK = threading.Lock()
 DUMP_LOCK= threading.Lock()
 ALLOCATE_LOCK = threading.Lock()
 
-class ReferenceAggregateManager(am3.ReferenceAggregateManager):
+RSPEC_V3_NAMESPACE_URI = "http://www.geni.net/resources/rspec/3"
 
-    # root_cert is a single cert or dir of multiple certs
-    # that are trusted to sign credentials
+#increment CODE_VERSION whenever changing something that impacts the stored data
+STATE_CODE_VERSION = '1'
+STATE_FILENAME = 'am-state-v{}.dat'.format(STATE_CODE_VERSION)
+
+class DockerAggregateManager(am3.ReferenceAggregateManager):
     def __init__(self, root_cert, urn_authority, url, **kwargs):
-        super(ReferenceAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
+        """
+        Create a testbed AggregateManager ("AM"), which supports docker containers and simple raw resources
+
+        :param root_cert: is a single cert or dir of multiple certs that are trusted to sign credentials
+        :type root_cert: ?
+        :param urn_authority: the tla/tla part of the authority urn. For "urn:publicid:IDN+example.com+authority+am" this must be "example.com"
+        :type urn_authority: string
+        :param url: the URL at which the AM runs.
+        :type url: string
+        :param kwargs:
+        """
+        super(DockerAggregateManager,self).__init__(root_cert,urn_authority,url,**kwargs)
         self._hrn = urn_authority
-        self._urn_authority = "IDN "+urn_authority #IDN docker.ilabt.iminds.be
+        self._urn_authority = "IDN "+urn_authority
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
         self.DockerManager = DockerManager()
+        self.proxy_dockermaster = None
         thread_sliver_daemon = threading.Thread(target=self.expireSliversDaemon)
         thread_sliver_daemon.daemon=True
         thread_sliver_daemon.start()
         try:
-            s=open('data.dat', 'rb')
+            self.logger.info("Restoring AM state from \"{}\"...".format(STATE_FILENAME))
+            s=open(STATE_FILENAME, 'rb')
             p = pickle.Unpickler(s)
             self._agg = p.load()
             self._slices = p.load()
+            self.proxy_dockermaster = p.load()
             s.close()
         except Exception as e:
             self.logger.info(str(e))
-            self.logger.info("Loading new instance...")
+            self.logger.info("Restoring AM state FAILED: Loading new instance...")
             self._agg = Aggregate()
             config = ConfigParser.SafeConfigParser()
-            config.read(os.path.dirname(os.path.abspath(__file__))+"/delegate_config")
+            config.read(os.path.dirname(os.path.abspath(__file__))+"/docker_am_config")
+            self.public_url = None
+
             for r in config.sections():
-                if config.get(r, "host") is None or config.get(r, "host") == "":
-                    dockermanager = None
+                def config_fetch(option_name, if_missing=None):
+                    if not config.has_option(r, option_name) \
+                            or config.get(r, option_name) is None \
+                            or config.get(r, option_name) == "":
+                        return if_missing
+                    else:
+                        return config.get(r, option_name)
+
+                if r == 'general':
+                    self.public_url = config_fetch("public_url")
+                    pass
                 else:
-                    uri = "PYRO:dockermanager@"+config.get(r, "host")+":"+config.get(r, "port")
-                    dockermanager = Pyro4.Proxy(uri)
-                    dockermanager._pyroHmacKey = config.get(r, "password")
-                self._agg.add_resources([DockerMaster(self._agg, int(config.get(r, "max_containers")), config.get(r, "public_host"), config.get(r, "ipv6_prefix"), int(config.get(r, "starting_ipv4_port")), dockermanager)])
-                #Here you can add the example resource. (You have to delete data.dat to reload resources)
-                #self._agg.add_resources([ResourceExample(str(uuid.uuid4()), "127.0.0.1")])
+                    #Both proxy and resources need a dockermanager config
+                    if config_fetch("dockermaster_pyro4_host") is None:
+                        # No host specified, so a new object is created locally,
+                        # which means docker runs on the local host instead of on a remote host
+                        dockermanager = DockerManager()
+                    else:
+                        # Host specified, so also use a DockerManager object,
+                        # but use PYRO to use one on a remote host instead of a local one.
+                        # This means that this uses docker on a remote host
+                        uri = "PYRO:dockermanager@" + config.get(r, "dockermaster_pyro4_host") + ":" + config.get(r, "dockermaster_pyro4_port")
+                        dockermanager = Pyro4.Proxy(uri)
+                        dockermanager._pyroHmacKey = config.get(r, "dockermaster_pyro4_password")
+
+                    if r.startswith("proxy"):
+                        if self.proxy_dockermaster is not None:
+                            raise Exception('Only 1 proxy section in config is supported')
+                        # proxy_type meaning:
+                        #    slice means one new proxy per slice.
+                        #    global means one fixed proxy.
+                        proxy_type = config_fetch("type")
+                        if proxy_type is None or not proxy_type in [ 'global', 'slice' ]:
+                            raise Exception("Invalid config: none or unknown proxy type specified in section \"{}\"".format(r));
+                        if proxy_type == 'global':
+                            raise Exception(
+                                "Valid proxy type {} specified in section \"{}\" is not yet supported".format(proxy_type,r));
+                        if proxy_type == 'slice':
+                            self.proxy_dockermaster = DockerMaster(int(config.get(r, "max_containers", 20)),
+                                                              config_fetch('node_ipv4_hostname'),
+                                                              None, #no ipv6 prefix
+                                                              int(config_fetch('starting_ipv4_port', '2222')),
+                                                              dockermanager)
+                        pass
+                    else:
+                        self._agg.add_resources([DockerMaster(int(config_fetch("max_containers", 20)),
+                                                              config_fetch("node_ipv4_hostname"),
+                                                              config_fetch("ipv6_prefix"),
+                                                              int(config_fetch('starting_ipv4_port', '12000')),
+                                                              dockermanager)])
+                        #Here you can add the example resource. (You have to delete STATE_FILENAME to reload resources)
+                        #self._agg.add_resources([ResourceExample(str(uuid.uuid4()), "127.0.0.1")])
             self.dumpState()
+            if self.public_url is None:
+                self.public_url = self._url
+                self.logger.warn("Warning: no public_url in docker_am_config. Will use '%s' as URL", self.public_url)
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
     # The list of credentials are options - some single cred
@@ -213,7 +284,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         # Look to see what RSpec version the client requested
         # Error-check that the input value is supported.
         rspec_type = options['geni_rspec_version']['type']
-        if isinstance(rspec_type, str):
+        if isinstance(rspec_type, basestring):
             rspec_type = rspec_type.lower().strip()
         rspec_version = options['geni_rspec_version']['version']
         if rspec_type != 'geni':
@@ -234,14 +305,12 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             return self.errorResult(am3.AM_API.BAD_ARGS, msg)
 
         all_resources = self._agg.catalog(None)
-        available = 'geni_available' in options and options['geni_available']
-        resource_xml = ""
+        show_only_available = 'geni_available' in options and options['geni_available']
         adv_header = self.advert_header()
-        for r in all_resources:
-            if available and not r.available:
+        for resource in all_resources:
+            if show_only_available and not resource.available:
                 continue
-            #resource_xml = resource_xml + self.advert_resource(r)
-            adv_header.append(self.advert_resource(r))
+            adv_header.append(resource.genAdvertNode(self._urn_authority, self._my_urn))
         result = etree.tostring(adv_header, pretty_print=True, xml_declaration=True, encoding='utf-8')
         # Optionally compress the result
         if 'geni_compressed' in options and options['geni_compressed']:
@@ -259,7 +328,17 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     def Allocate(self, slice_urn, credentials, rspec, options):
         """Allocate slivers to the given slice according to the given RSpec.
         Return an RSpec of the actually allocated resources.
+
+        :param slice_urn: the slice in which to allocate the resources
+        :type slice_urn: string
+        :param rspec: the request RSpec
+        :type rspec: string
+        :param credentials: the credential(s) that authorise the caller to use the slice specified in slice_urn
+        :type credentials: list of dict
+        :param options: optional parameters for the Allocate call
+        :type options: dict
         """
+
         self.logger.info('Allocate(%r)' % (slice_urn))
         self.expire_slivers()
         # Note this list of privileges is really the name of an operation
@@ -281,113 +360,147 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         rspec_dom = None
         try:
             rspec_dom = minidom.parseString(rspec)
+            #TODO: remember to call rspec_dom.unlink() once no part of it is still needed. This speeds up freeing its memory.
         except Exception, exc:
             self.logger.error("Cannot create sliver %s. Exception parsing rspec: %s" % (slice_urn, exc))
             return self.errorResult(am3.AM_API.BAD_ARGS,
                                     'Bad Args: RSpec is unparseable')
 
-        # Look at the version of the input request RSpec
-        # Make sure it is supported
-        # Then make sure that you return an RSpec in the same format
-        # EG if both V1 and V2 are supported, and the user gives V2 request,
-        # then you must return a V2 manifest and not V1
+        # Allow only Geni v3 request RSpec
+        # expected root node is thus: <rspec type="request" xmlns="http://www.geni.net/resources/rspec/3">
 
-        #Get only resources with sliver_types required in the rspec
-        sliver_types = []
-        for node in etree.parse(StringIO(rspec)).getroot().getchildren():
-            if node.get("exclusive") == "true":
-                return self.errorResult(am3.AM_API.UNSUPPORTED, "Can't allocate an exclusive resource, not supported")
-            for t in node.getchildren():
-                if "sliver_type" in t.tag and t.get("name") not in sliver_types:
-                    sliver_types.append(t.get("name"))
+        # rspec_nodelist = rspec_dom.getElementsByTagNameNS(RSPEC_V3_NAMESPACE_URI, "rspec") # type: NodeList
+        # if (rspec_nodelist.length == 0):
+        #     return self.errorResult(am3.AM_API.BAD_ARGS, 'Bad Args: no RSpec element found')
+        # if (rspec_nodelist.length > 1):
+        #     return self.errorResult(am3.AM_API.BAD_ARGS, 'Bad Args: multiple RSpec element found')
+        # rspec_element = rspec_nodelist.item(0) # type : Element
+
+        rspec_element = rspec_dom.documentElement # type : Element
+        if rspec_element is None:
+            return self.errorResult(am3.AM_API.BAD_ARGS, 'Bad Args: no root RSpec element found')
+        if not rspec_element.hasAttribute("type"):
+            return self.errorResult(am3.AM_API.BAD_ARGS, 'Bad Args: rspec element has no "type" argument')
+        if rspec_element.getAttribute("type") != "request":
+            return self.errorResult(am3.AM_API.BAD_ARGS, 'Bad Args: rspec element has type "'+rspec_element.getAttribute("type")+'" instead of "request"')
+
         ALLOCATE_LOCK.acquire()
-        available = self.resources(available=True, sliver_types=sliver_types)
+        available = self.resources(available=True)
         available = sorted(available, key=lambda a: a.size(), reverse=True)
-                
+
         # Note: This only handles unbound nodes. Any attempt by the client
         # to specify a node is ignored.
         unbound = list()
-        for elem in rspec_dom.documentElement.getElementsByTagName('node'):
-            if elem.getAttribute("component_manager_id") == self._my_urn:
-                unbound.append(elem)
+        for node_elem in rspec_dom.documentElement.getElementsByTagName('node'):
+            if node_elem.getAttribute("component_manager_id") == self._my_urn:
+                unbound.append(node_elem)
 
         if len(unbound)==0:
             ALLOCATE_LOCK.release()
-            return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. Check your request (usually bad component_manager_id)")
+            return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. "
+                                                              "Check your request (usually bad component_manager_id)")
 
         resources = list()
         images_to_delete = list()
-        for elem in unbound:
-            client_id = elem.getAttribute('client_id')
+
+        def abort_resource_allocation():
+            for r in resources:
+                r.deallocate()
+            ALLOCATE_LOCK.release()
+
+        proxy_resource = None
+        if CREATE_AUTOMATIC_PROXY:
+            proxy_resource = self.proxy_dockermaster.matchResource()
+            if proxy_resource is None:
+                abort_resource_allocation()
+                return self.errorResult(am3.AM_API.TOO_BIG, 'Too Big: insufficient resources to fulfill request (not enough resources to create proxy)')
+            proxy_resource.is_proxy = True
+            proxy_resource.external_id = None
+            proxy_resource.available = False
+            proxy_resource.chosen_sliver_type='docker-container'
+            proxy_resource.image = None
+            resources.append(proxy_resource)
+
+        for node_elem in unbound:
+            client_id = node_elem.getAttribute('client_id')
             if client_id == "" or client_id is None:
+                abort_resource_allocation()
                 return self.errorResult(am3.AM_API.BAD_ARGS, "A node does not have a client_id")
-            if len(elem.getElementsByTagName('sliver_type')) < 1:
-                return self.errorResult(am3.AM_API.BAD_ARGS, "The node '{}' does not have a sliver_type".format(client_id))
-            sliver_type = elem.getElementsByTagName('sliver_type')[0]
+            if len(node_elem.getElementsByTagName('sliver_type')) < 1:
+                abort_resource_allocation()
+                return self.errorResult(am3.AM_API.BAD_ARGS,
+                                        "The node '{}' does not have a sliver_type".format(client_id))
+            sliver_type = node_elem.getElementsByTagName('sliver_type')[0]
             image = None
             if sliver_type != "":
                 if len(sliver_type.getElementsByTagName("disk_image")) == 1:
                     image = sliver_type.getElementsByTagName("disk_image")[0].getAttribute("name")
                     images_to_delete.append(image)
                 sliver_type = sliver_type.getAttribute('name')
-            component_id = elem.getAttribute('component_id')
+                # notE: basestring handles both str and unicode
+            if sliver_type is None \
+                    or not isinstance(sliver_type, basestring) \
+                    or sliver_type == "":
+                self.logger.info('Bad sliver_type="%s" (%r) (type=%s)', sliver_type, sliver_type, type(sliver_type))
+                abort_resource_allocation()
+                return self.errorResult(am3.AM_API.BAD_ARGS,
+                                        "The node '{}' does not have a valid sliver_type".format(client_id))
+            self.logger.info('Checking node with sliver_type="%s"', sliver_type)
+            component_id = node_elem.getAttribute('component_id')
             if component_id == "": component_id=None
-            resource = None
+            exclusive = node_elem.getAttribute('exclusive') # type : string
+            if exclusive == "": exclusive=None
+            if exclusive is not None:
+                exclusive = exclusive.lower() in ['true', '1', 't', 'y', 'yes']
+            resource = None # type: ExtendedResource
             for r in available:
-                _type = r.genAdvertNode("", "").xpath('sliver_type/@name')#Available sliver types for this resource
-                if sliver_type in _type:
-                    resource = r.getResource(component_id)
-                    if component_id is not None and (resource is None or resource.id != component_id): #resource with Component_id not found
-                        resource = None
-                        continue
-                    if resource is None: #Dockermaster is empty
-                        continue #Search next available resource
-                    try: #Resource returned by DockerMaster are not listed in "available" list, so ignore Exception
+                resource = r.matchResource(sliver_type, component_id, exclusive)
+                if resource is None:
+                    # Search next available resource
+                    continue
+                else:
+                    #resource found
+                    if component_id is not None and (resource.id != component_id):
+                        abort_resource_allocation()
+                        return self.errorResult(5, #5 = SERVERERROR
+                                                "Server ERROR: {} != {}".format(resource.id, component_id))
+                    try:
+                        #Resource returned by a resource pool are not listed in "available" list,
+                        # so ignore Exception
                         available.remove(resource)
                     except:
                         pass
                     break
             if resource is None: # There aren't enough resources
                 self.logger.error('Too big: not enought %s available',sliver_type)
-                for r in resources:
-                    r.deallocate()
-                ALLOCATE_LOCK.release()
+                abort_resource_allocation()
                 return self.errorResult(am3.AM_API.TOO_BIG, 'Too Big: insufficient resources to fulfill request')
             resource.external_id = client_id
             resource.available = False
-            resource.sliver_type=sliver_type
+            resource.chosen_sliver_type=sliver_type
             resource.image=image
+            resource.proxy_resource = proxy_resource
             resources.append(resource)
-            available = sorted(available, key=lambda a: a.size(), reverse=True)
 
         ALLOCATE_LOCK.release()
-        # determine max expiration time from credentials
-        # do not create a sliver that will outlive the slice!
-        expiration = self.min_expire(creds, self.max_alloc,
-                                     ('geni_end_time' in options
-                                      and options['geni_end_time']))
-
-        # determine end time as min of the slice 
-        # and the requested time (if any)
-        end_time = self.min_expire(creds, 
-                                   requested=('geni_end_time' in options 
-                                              and options['geni_end_time']))
 
         # determine the start time as bounded by slice expiration and 'now'
         now = datetime.datetime.utcnow()
         start_time = now
         if 'geni_start_time' in options:
-            # Need to parse this into datetime
-            start_time_raw = options['geni_start_time']
-            start_time = self._naiveUTC(dateutil.parser.parse(start_time_raw))
-        start_time = max(now, start_time)
-        if (start_time > self.min_expire(creds)):
-            ALLOCATE_LOCK.acquire()
-            for sliver in newslice.slivers():
-                sliver.resource().deallocate()
-            ALLOCATE_LOCK.release()
-            return self.errorResult(am3.AM_API.BAD_ARGS, 
-                                    "Can't request start time on sliver after slice expiration")
+            # # Need to parse this into datetime
+            # start_time_raw = options['geni_start_time']
+            # start_time = self._naiveUTC(dateutil.parser.parse(start_time_raw))
+            return self.errorResult(am3.AM_API.BAD_ARGS,
+                                    "geni_start_time is not supported")
+        # start_time = max(now, start_time)
+        # if (start_time > self.min_expire(creds)):
+        #     ALLOCATE_LOCK.acquire()
+        #     for sliver in newslice.slivers():
+        #         sliver.resource().deallocate()
+        #     ALLOCATE_LOCK.release()
+        #     return self.errorResult(am3.AM_API.BAD_ARGS,
+        #                             "Can't request start time on sliver after slice expiration")
 
         # determine max expiration time from credentials
         # do not create a sliver that will outlive the slice!
@@ -395,11 +508,11 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                                      ('geni_end_time' in options
                                       and options['geni_end_time']))
 
-        # If we're allocating something for future, give a window
-        # from start time in which to reserve
-        if start_time > now:
-            expiration = min(start_time + self.max_alloc, 
-                             self.min_expire(creds))
+        # # If we're allocating something for future, give a window
+        # # from start time in which to reserve
+        # if start_time > now:
+        #     expiration = min(start_time + self.max_alloc,
+        #                      self.min_expire(creds))
 
         # if slice exists, check accept only if no  existing sliver overlaps
         # with requested start/end time. If slice doesn't exist, create it
@@ -408,7 +521,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             # Check if any current slivers overlap with requested start/end
             one_slice_overlaps = False
             for sliver in newslice.slivers():
-                if sliver.startTime() < end_time and \
+                if sliver.startTime() < expiration and \
                         sliver.endTime() > start_time:
                     one_slice_overlaps = True
                     break
@@ -418,10 +531,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 for sliver in newslice.slivers():
                     sliver.resource().deallocate()
                 ALLOCATE_LOCK.release()
-                template = "Slice %s already has slivers at requested time"
+                # template = "Slice %s already has slivers at requested time"
+                template = "Slice %s already has slivers"
                 self.logger.error(template % (slice_urn))
-                for sliver in newslice.slivers():
-                    sliver.resource().deallocate()
                 return self.errorResult(am3.AM_API.ALREADY_EXISTS,
                                         template % (slice_urn))
         else:
@@ -433,20 +545,20 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 resource.image = slice_urn+"::"+resource.image
             sliver.setExpiration(expiration)
             sliver.setStartTime(start_time)
-            sliver.setEndTime(end_time)
+            sliver.setEndTime(expiration)
             sliver.setAllocationState(STATE_GENI_ALLOCATED)
         for i in images_to_delete:
             if i.startswith("http://") or i.startswith("https://") and i not in newslice.images_to_delete:
                 newslice.images_to_delete.append(i)
         self._agg.allocate(slice_urn, newslice.resources())
         self._agg.allocate(user_urn, newslice.resources())
-        newslice.request_manifest = rspec
+        newslice.request_rspec = rspec
         self._slices[slice_urn] = newslice
 
         # Log the allocation
         self.logger.info("Allocated new slice %s" % slice_urn)
         for sliver in newslice.slivers():
-            self.logger.info("Allocated resource %s to slice %s as sliver %s",
+            self.logger.info("   Allocated resource %s to slice %s as sliver %s",
                              sliver.resource().id, slice_urn, sliver.urn())
 
         manifest = self.manifest_rspec(slice_urn)
@@ -454,6 +566,68 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         result = dict(geni_rspec=manifest,
                       geni_slivers=[s.status() for s in newslice.slivers()])
         return self.successResult(result)
+
+    def provision_install_execute_sliver(self, the_slice, sliver):
+        def getXmlNode(client_id, manifest=the_slice.request_rspec):
+            assert the_slice is not None
+            assert manifest is not None
+            for node in etree.parse(StringIO(manifest)).getroot().getchildren():
+                if node.get("client_id")==client_id:
+                    return node
+            return None
+
+        def getServiceInstall(etreeNode):
+            ns="{"+etreeNode.nsmap.get(None)+"}"
+            services =  etreeNode.find(ns+"services")
+            if services is None:
+                return []
+            else:
+                ret = list()
+                for install in services.findall(ns+'install'):
+                    ret.append([install.get('url'), install.get('install_path')])
+                return ret
+
+        def getServiceExecute(etreeNode):
+            ns="{"+etreeNode.nsmap.get(None)+"}"
+            services =  etreeNode.find(ns+"services")
+            if services is None:
+                return []
+            else:
+                ret = list()
+                for install in services.findall(ns+'execute'):
+                    ret.append([install.get('shell'), install.get('command')])
+                return ret
+
+        if sliver.resource().provision() is not True:
+            sliver.setOperationalState(OPSTATE_GENI_FAILED)
+            sliver.resource().deprovision()
+            return
+        if sliver.resource().waitForSshConnection() is not True:
+            sliver.setOperationalState(OPSTATE_GENI_FAILED)
+            sliver.resource().deprovision()
+            return
+        sliver.setOperationalState(OPSTATE_GENI_READY_BUSY)
+        self.dumpState()
+        client_id = sliver.resource().external_id
+        if client_id is not None:
+            assert client_id is not None
+            assert isinstance(client_id, basestring)
+            node_xml = getXmlNode(client_id)
+            assert node_xml is not None
+            # assert isinstance(node_xml, etree.Node)
+            for i in getServiceInstall(node_xml):
+                ret = sliver.resource().installCommand(i[0], i[1])
+                if ret is not True:
+                    sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                    sliver.resource().error = ret
+                else:
+                    sliver.resource().error = ""
+                self.dumpState()
+            sliver.setOperationalState(OPSTATE_GENI_READY)
+            for i in getServiceExecute(node_xml):
+                sliver.resource().executeCommand(i[0], i[1])
+        else:
+            sliver.setOperationalState(OPSTATE_GENI_READY)
 
     def Provision(self, urns, credentials, options):
         """Allocate slivers to the given slice according to the given RSpec.
@@ -489,7 +663,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         # Look to see what RSpec version the client requested
         # Error-check that the input value is supported.
         rspec_type = options['geni_rspec_version']['type']
-        if isinstance(rspec_type, str):
+        if isinstance(rspec_type, basestring):
             rspec_type = rspec_type.lower().strip()
         rspec_version = options['geni_rspec_version']['version']
         if rspec_type != 'geni':
@@ -526,84 +700,30 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 
         # Configure user and ssh keys on nodes (dockercontainer)
 
-        def thread_provisionning(sliver):
-            if sliver.resource().provision() is not True:
-                sliver.setOperationalState(OPSTATE_GENI_FAILED)
-                sliver.resource().deprovision()
-                return
-            if sliver.resource().checkSshConnection() is not True:
-                sliver.setOperationalState(OPSTATE_GENI_FAILED)
-                sliver.resource().deprovision()
-                return
-            sliver.setOperationalState(OPSTATE_GENI_READY)
-            self.dumpState()
-            for i in getServiceInstall(getXmlNode(sliver.resource().external_id)):
-                ret =  sliver.resource().installCommand(i[0], i[1])
-                if ret is not True:
-                    sliver.setOperationalState(OPSTATE_GENI_FAILED)
-                    sliver.resource().error = ret
-                else:
-                    sliver.resource().error = ""
-                self.dumpState()
-            for i in getServiceExecute(getXmlNode(sliver.resource().external_id)):
-                sliver.resource().executeCommand(i[0], i[1])            
-            
-
-        def getXmlNode(client_id, manifest=the_slice.request_manifest):
-            for node in etree.parse(StringIO(manifest)).getroot().getchildren():
-                if node.get("client_id")==client_id:
-                    return node
-            return None
-
-        def getServiceInstall(etreeNode):
-            ns="{"+etreeNode.nsmap.get(None)+"}"
-            services =  etreeNode.find(ns+"services")
-            if services is None:
-                return []
-            else:
-                ret = list()
-                for install in services.findall(ns+'install'):
-                    ret.append([install.get('url'), install.get('install_path')])
-                return ret
-
-        def getServiceExecute(etreeNode):
-            ns="{"+etreeNode.nsmap.get(None)+"}"
-            services =  etreeNode.find(ns+"services")
-            if services is None:
-                return []
-            else:
-                ret = list()
-                for install in services.findall(ns+'execute'):
-                    ret.append([install.get('shell'), install.get('command')])
-                return ret
-
-
         user_keys_dict = dict()
         if 'geni_users' in options:
-            i=0
             for user in options['geni_users']:
-                if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
+                if 'keys' in user and len(user['keys'])>0:
                     user_keys_dict[urn.URN(urn=user['urn']).getName()] = user['keys']
-                i+=1
 
         if user_keys_dict:
-            arr_threads = list()
-            slivers_tmp = list(slivers)
             for sliver in slivers:
                 if sliver.operationalState() == OPSTATE_GENI_CONFIGURING:
-                    slivers_tmp.remove(sliver)
                     continue
                 sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
-                arr_threads.append(threading.Thread(target=sliver.resource().preprovision, args=[user_keys_dict]))
-                arr_threads[-1].start()
-            for t in arr_threads:
-                t.join()
-            for sliver in slivers_tmp:
-                threading.Thread(target=thread_provisionning, args=[sliver]).start()
-            #else:
-            #    sliver.setOperationalState(OPSTATE_GENI_PENDING_ALLOCATION)
-            #    sliver.setAllocationState(STATE_GENI_ALLOCATED)
-            #    return self.errorResult(am3.AM_API.BAD_ARGS, "No SSH public key provided")
+                #pre-provision should be fast, so we don't do it on a seperate thread
+                if sliver.resource().is_proxy:
+                    allkeys = []
+                    for userurn, keylist in user_keys_dict.items():
+                        allkeys.extend(keylist)
+                    new_user_keys_dict = { FIXED_PROXY_USER : allkeys }
+                    sliver.resource().preprovision(new_user_keys_dict)
+                else:
+                    sliver.resource().preprovision(user_keys_dict)
+
+                #provision might be slow, so we do it on a seperate thread
+                threading.Thread(target=self.provision_install_execute_sliver,
+                                 args=[the_slice, sliver]).start()
         else:
             return self.errorResult(am3.AM_API.BAD_ARGS, "No user (with SSH key) provided")
         self.dumpState()
@@ -616,7 +736,6 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         include API version information, RSpec format and version
         information, etc. Return a dict.'''
         self.logger.info("Called GetVersion")
-        self.expire_slivers()
         reqver = [dict(type="GENI",
                        version="3",
                        schema="http://www.geni.net/resources/rspec/3/request.xsd",
@@ -628,7 +747,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                       namespace="http://www.geni.net/resources/rspec/3",
                       extensions=[])]
         api_versions = dict()
-        api_versions[str(self._api_version)] = self._url
+        api_versions[str(self._api_version)] = self.public_url
         credential_types = [dict(geni_type = Credential.SFA_CREDENTIAL_TYPE,
                                  geni_version = "3")]
         versions = dict(geni_api=self._api_version,
@@ -696,8 +815,8 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
             # ensure that the slivers are provisioned
             if (sliver.allocationState() not in astates
                 or sliver.operationalState() not in ostates):
-                msg = "%d: Sliver %s is not in the right state for action %s."
-                msg = msg % (am3.AM_API.UNSUPPORTED, sliver.urn(), action)
+                msg = "%d: Sliver %s is not in the right state for action %s (current state = %s %s)."
+                msg = msg % (am3.AM_API.UNSUPPORTED, sliver.urn(), action, sliver.allocationState(), sliver.operationalState())
                 errors[sliver.urn()] = msg
         best_effort = False
         if 'geni_best_effort' in options:
@@ -707,13 +826,15 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                                     "\n".join(errors.values()))
 
         def thread_restart(sliver):
-            ret = sliver.resource().provision()
-            if ret is not True:
-                sliver.resource().error = ret
+            ret = sliver.resource().restart()
+            if not ret:
                 sliver.setOperationalState(OPSTATE_GENI_FAILED)
-                self.dumpState()
                 return
-            sliver.resource().checkSshConnection()
+            #now wait until container is up again
+            if sliver.resource().waitForSshConnection() is not True:
+                sliver.setOperationalState(OPSTATE_GENI_FAILED)
+                sliver.resource().deprovision()
+                return
             sliver.setOperationalState(OPSTATE_GENI_READY)
             self.dumpState()
 
@@ -727,27 +848,44 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
                     sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
+                    threading.Thread(target=self.provision_install_execute_sliver,
+                                     args=[the_slice, sliver]).start()
+            elif (action == 'geni_restart'):
+                if (sliver.allocationState() in astates
+                    and sliver.operationalState() in ostates):
+                    sliver.setOperationalState(OPSTATE_GENI_CONFIGURING)
                     threading.Thread(target=thread_restart, args=[sliver]).start()
             elif (action == 'geni_stop'):
                 if (sliver.allocationState() in astates
                     and sliver.operationalState() in ostates):
-                    sliver.setOperationalState(OPSTATE_GENI_NOT_READY)
-            elif (action == 'geni_stop'):
-                if (sliver.allocationState() in astates
-                    and sliver.operationalState() in ostates):
+                    try:
+                        #not perfect: deprovision also prevents reprovisioning
+                        sliver.resource().deprovision()
+                    except:
+                        #ignore errors when deprovisioning
+                        pass
                     sliver.setOperationalState(OPSTATE_GENI_NOT_READY)
             elif (action == 'geni_update_users'):
                 user_keys_dict = dict()
                 if 'geni_users' in options:
-                    i=0
                     for user in options['geni_users']:
-                        if 'keys' in options['geni_users'][i] and len(options['geni_users'][i]['keys'])>0:
+                        if 'keys' in user and len(user['keys'])>0:
                             user_keys_dict[urn.URN(urn=user['urn']).getName()] = user['keys']
-                        i+=1
+                if sliver.resource().is_proxy:
+                    allkeys = sliver.resource().user_keys_dict[FIXED_PROXY_USER]
+                    if allkeys is None:
+                        self.logger.warn('geni_update_users allkeys init: Failed to find existing user keys.')
+                        allkeys = []
+                    else:
+                        self.logger.info('geni_update_users allkeys init: Found %d existing user keys.' % len(allkeys))
+                    for userurn, keylist in user_keys_dict.items():
+                        allkeys.extend(keylist)
+                    new_user_keys_dict = {FIXED_PROXY_USER: allkeys}
+                    self.logger.info('Updating proxy sliver keys %d' % len(allkeys))
+                    sliver.resource().updateUser(new_user_keys_dict, force=True)
+                else:
+                    self.logger.info('Updating sliver keys %d' % len(user_keys_dict))
                     sliver.resource().updateUser(user_keys_dict)
-                #for u in options['geni_users']:
-                #    name = urn.URN(urn=u['urn']).getName()
-                #    sliver.resource().updateUser(name, u['keys'])
             else:
                 # This should have been caught above
                 msg = "Unsupported: action %s is not supported" % (action)
@@ -793,7 +931,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         # Look to see what RSpec version the client requested
         # Error-check that the input value is supported.
         rspec_type = options['geni_rspec_version']['type']
-        if isinstance(rspec_type, str):
+        if isinstance(rspec_type, basestring):
             rspec_type = rspec_type.lower().strip()
         rspec_version = options['geni_rspec_version']['version']
         if rspec_type != 'geni':
@@ -809,13 +947,12 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         manifest = self.manifest_rspec(the_slice.getURN(), provision=True)
         self.logger.debug("Result is now \"%s\"", manifest)
         # Optionally compress the manifest
-        #A DECOMMENTER
-        #        if 'geni_compressed' in options and options['geni_compressed']:
-            # try:
-            #     manifest = base64.b64encode(zlib.compress(manifest))
-            # except Exception, exc:
-            #     self.logger.error("Error compressing and encoding resource list: %s", traceback.format_exc())
-            #     raise Exception("Server error compressing resource list", exc)
+        if 'geni_compressed' in options and options['geni_compressed']:
+            try:
+                manifest = base64.b64encode(zlib.compress(manifest))
+            except Exception, exc:
+                self.logger.error("Error compressing and encoding resource list: %s", traceback.format_exc())
+                raise Exception("Server error compressing resource list", exc)
         value = dict(geni_rspec=manifest,
                      geni_urn=the_slice.urn,
                      geni_slivers=[s.status() for s in slivers])
@@ -839,7 +976,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         if the_slice.isShutdown():
             self.logger.info("Slice %s not deleted because it is shutdown",
                              the_slice.urn)
-            return self.errorResult(AM_API.UNAVAILABLE,
+            return self.errorResult(am3.AM_API.UNAVAILABLE,
                                     ("Unavailable: Slice %s is unavailable."
                                      % (the_slice.urn)))
         resources = [sliver.resource() for sliver in slivers]
@@ -879,14 +1016,14 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         for sliver in slivers:
             expiration = self.rfc3339format(sliver.expiration())
             start_time = self.rfc3339format(sliver.startTime())
-            end_time = self.rfc3339format(sliver.endTime())
+            # end_time = self.rfc3339format(sliver.endTime())
             allocation_state = sliver.allocationState()
             operational_state = sliver.operationalState()
             error = sliver.resource().error
             geni_slivers.append(dict(geni_sliver_urn=sliver.urn(),
                                      geni_expires=expiration,
                                      geni_start_time=start_time,
-                                     geni_end_time=end_time,
+                                     # geni_end_time=end_time,
                                      geni_allocation_status=allocation_state,
                                      geni_operational_status=operational_state,
                                      geni_error=''))
@@ -900,12 +1037,9 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         Requires at least one credential that is valid until then.
         Return False on any error, True on success.'''
 
-        out = super(ReferenceAggregateManager,self).Renew(urns, credentials, expiration_time, options)
+        out = super(DockerAggregateManager,self).Renew(urns, credentials, expiration_time, options)
         self.dumpState()
         return out
-
-    def advert_resource(self, resource):
-        return resource.genAdvertNode(self._urn_authority, self._my_urn)
 
     # See https://www.protogeni.net/trac/protogeni/wiki/RspecAdOpState
     def advert_header(self):
@@ -940,7 +1074,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
         return adv_header
 
     def manifest_rspec(self, slice_urn, provision=False):
-        rspec = etree.parse(StringIO(self._slices[slice_urn].request_manifest))
+        rspec = etree.parse(StringIO(self._slices[slice_urn].request_rspec))
         rspec.getroot().set("type", "manifest")
         ns=rspec.getroot().nsmap.get(None)
         
@@ -954,7 +1088,7 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                     tmp.set("log","/tmp/startup-"+str(i_exec)+".txt")
                     tmp.set("status","/tmp/startup-"+str(i_exec)+".status")
                     tmp.set("command","/tmp/startup-"+str(i_exec)+".sh")
-                    e.getparent().remove(e)
+                    # e.getparent().remove(e)
                     s.append(tmp)
                     i_exec+=1
         for node in rspec.getroot().getchildren():
@@ -971,27 +1105,20 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
                         if services is None:
                             services = etree.Element("services")
                         services.extend(s.resource().manifestAuth())
+                        s.resource().addManifestProxyServiceElements(services)
                         node.append(services)
         return etree.tostring(rspec, pretty_print=True, xml_declaration=True, encoding='utf-8')
             
         
 
-    def resources(self, available=None, sliver_types=None):
+    def resources(self, available=None):
         """Get the list of managed resources. If available is not None,
         it is interpreted as boolean and only resources whose availability
         matches will be included in the returned list.
         """
-        result = self._agg.catalog()
+        result = list(self._agg.catalog())
         if available is not None:
             result = [r for r in result if r.available is available]
-        if sliver_types is not None:
-            for r in list(result): #Avoid loop troubles due to delete
-                types = r.genAdvertNode("", "").xpath('sliver_type')
-                found = False
-                for t in types:
-                    if t.get("name") in sliver_types :
-                        found = True
-                if not found: result.remove(r)
         return result
 
     def expire_slivers(self):
@@ -1036,14 +1163,17 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
     def dumpState(self):
         DUMP_LOCK.acquire()
         try:
-            open("data2.dat", 'w').close()
-            s = open("data2.dat", "wb")
+            TMP_STATE_FILENAME = STATE_FILENAME+".tmp"
+            open(TMP_STATE_FILENAME, 'w').close()
+            s = open(TMP_STATE_FILENAME, "wb")
             p = pickle.Pickler(s, pickle.HIGHEST_PROTOCOL)
             p.dump(self._agg)
             p.dump(self._slices)
+            p.dump(self.proxy_dockermaster)
             s.close()
-            copyfile("data2.dat", "data.dat")
+            copyfile(TMP_STATE_FILENAME, STATE_FILENAME)
         except RuntimeError:
+            print 'error in DumpState'
             pass
         DUMP_LOCK.release()
 
@@ -1055,5 +1185,5 @@ class ReferenceAggregateManager(am3.ReferenceAggregateManager):
 class Slice(am3.Slice):
     def __init__(self, urn):
         super(Slice,self).__init__(urn)
-        self.request_manifest = None
+        self.request_rspec = None
         self.images_to_delete = list()

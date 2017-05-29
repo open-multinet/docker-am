@@ -32,8 +32,8 @@ rootcadir=~/geni-tools/trusted_roots/
 
 
 [aggregate_manager]
-# Address that the AM listens on. This is also used in the GetVersion reply as URL. So you need to use the server DNS name here.
-host=docker.example.com
+# Address that the AM listens on. Recommended: 0.0.0.0  (listen on all interfaces)
+host=0.0.0.0
 # running the sever on port 443 is nice, because it XML-RPC uses HTTP over SSL. This port is also less lickely to be firewalled at any clients side
 port=443
 
@@ -41,8 +41,8 @@ port=443
 keyfile=~/server_ssl/am-server-key.pem
 certfile=~/server_ssl/am-server-cert.pem
 
-# delegate must be testbed.ReferenceAggregateManager
-delegate=testbed.ReferenceAggregateManager
+# delegate must be testbed.DockerAggregateManager
+delegate=testbed.DockerAggregateManager
 
 # By default (false) the Aggregate API will accept only one connection at the same time
 # Set this to 'true' if you want to enable multi-threaded XMLRPC server

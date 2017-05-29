@@ -33,39 +33,38 @@ from gcf_to_docker import DockerManager
 from extendedresource import ExtendedResource
 
 class DockerMaster(ExtendedResource):
-    def __init__(self, agg, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None, dockermanager=None):
-        super(DockerMaster, self).__init__(str(uuid.uuid4()), "dockermaster")
+    def __init__(self, max_slots, host=None, ipv6_prefix=None, starting_ipv4_port=None, dockermanager=None):
+        super(DockerMaster, self).__init__(str(uuid.uuid4()),
+                                           [ 'docker-container',
+                                             'docker-container_100M',
+                                             'docker-container-with-tunnel' ])
         if starting_ipv4_port is None or starting_ipv4_port<=1024:
             starting_ipv4_port=12000 #Default
         if dockermanager is None:
             dockermanager = DockerManager()
         if host is None or len(host)==0:
             host = urlopen('http://ip.42.pl/raw').read()
-        self.pool = [DockerContainer(self, starting_ipv4_port, dockermanager, host, ipv6_prefix) for _ in range(max_slots)]
-        self._agg = agg
+        self.pool = [DockerContainer(self, starting_ipv4_port, dockermanager, host, ipv6_prefix)
+                     for _ in range(max_slots)]
 
-    def deallocate(self, container, resources):
+    def onDeallocateContainer(self, container, resources):
+        # THIS IS NOT AN OVERWRITE OF, SO DONT: # super(DockerMaster, self).deallocate()
         self.pool.extend(resources)
 
     def genAdvertNode(self, _urn_authority, _my_urn):
-        r = etree.Element("node")
-        resource_id = str(self.id)
-        resource_available = str(self.available).lower()
-        resource_urn = self.urn(_urn_authority)
-        r.set("component_manager_id", _my_urn)
-        r.set("component_name", resource_id)
-        r.set("component_id", resource_urn)
+        r = super(DockerMaster, self).genAdvertNode(_urn_authority, _my_urn)
         r.set("exclusive", "false")
-        etree.SubElement(r, "sliver_type").set("name", "docker-container")
-        etree.SubElement(r, "sliver_type").set("name", "docker-container_100M")
-        etree.SubElement(r, "sliver_type").set("name", "docker-container-with-tunnel")
         hardware = etree.SubElement(r, "hardware_type")
         hardware.set("name", "docker_cluster")
         etree.SubElement(hardware, "{http://www.protogeni.net/resources/rspec/ext/emulab/1}node_type").set("type_slots", str(len(self.pool)))
-        etree.SubElement(r, "available").set("now", resource_available)
         return r
         
-    def getResource(self, component_id=None):
+    def matchResource(self, sliver_type=None, component_id=None, exclusive=None):
+        if sliver_type is not None and not sliver_type in self.supported_sliver_types:
+            return None
+        #do not allow exclusive resources, but do allow non exclusive resources
+        if exclusive is not None and exclusive:
+            return None
         if len(self.pool) == 0:
             return None
         if component_id is not None:
@@ -78,5 +77,3 @@ class DockerMaster(ExtendedResource):
 
     def size(self):
         return len(self.pool)
-        
-            

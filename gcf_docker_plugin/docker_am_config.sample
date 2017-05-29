@@ -1,0 +1,89 @@
+#----------------------------------------------------------------------
+# Copyright (c) 2016 Inria/iMinds by Arthur Garnier
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and/or hardware specification (the "Work") to
+# deal in the Work without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Work, and to permit persons to whom the Work
+# is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Work.
+#
+# THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE WORK OR THE USE OR OTHER DEALINGS
+# IN THE WORK.
+#----------------------------------------------------------------------
+
+[general]
+
+# This is the URL that will be used in GetVersions. The hostname of the URL needs to be the FQDN of your AM.
+# A publically reachable IPv4 as hostname is also acceptable, but not prefered.
+# 'localhost', '0.0.0.0' or '127.0.0.1' are wrong hostname values, that should never be used on a public server.
+#    (note that the 'host' option specified in gcf_config is not used in GetVersion, as it might be 0.0.0.0)
+#public_url = https://dockeram.example.com:8001
+public_url = https://dockeram.example.com
+
+
+[dockermaster_1]
+
+# This section defines a single "dockermaster".
+#   Each dockermaster is advertised in the advertisment RSpec and has a seperate confguration
+
+# Maximum number of container to create for this dockermaster
+max_containers=20
+
+# Enable IPv6 support. For each container, an IPv6 address will be assigned, and added to the manifest.
+# This option should be set to a /64 or /80 prefix
+# If empty the IPV6 support will not be enable
+#
+#ipv6_prefix=2001:06a8:1d80:0601::
+ipv6_prefix=
+
+# These parameters are used to connect to the DockerManager daemon using RMI.
+# This uses the pyro4 python library
+# If empty or not specified, the dockermaster is on the same host than the AM, and pyro4 will NOT be used.
+#
+# with pyro4 remote dockermaster:
+#dockermaster_pyro4_host=193.190.127.251
+#dockermaster_pyro4_password=abc
+#dockermaster_pyro4_port=11999
+#
+# without remote dockermaster (or just leave out this option completely):
+#dockermaster_pyro4_host=
+
+# This is the IPv4 address returned for each node in the manifest reply.
+# Note: This is also used by the AM to test connectivity to the container.
+# If empty, http://ip.42.pl/raw is used to get the public ipv4 (which assumes the container is on the same host than the AM)
+# Notice : Typically, you want to put the FQDN if the docker AM here, and you want that domain name to resolve to a public IPv4.
+node_ipv4_hostname=dockeram.example.com
+
+# For IPv4 access, the docker AM assigns a different SSH port for each container. This way, only a single public IPv4 is needed.
+# This option specifies the starting port. The number of ports is equal to the 'max_containers' option.
+# The default is 12000. For example the first container will be reachable with : ssh login@host -p 12000, the second 12001, ...
+# The AM uses the first port available, that means if the first container is deleted, the next provisionned container will reuse 12000
+starting_ipv4_port=12000
+
+
+
+[proxy]
+
+# configure an automatic proxy for all other resources
+# If this section is not specified, no proxy is used.
+
+# proxy_type (mandatory option) can have 2 values
+#   - 'slice': create one proxy docker container per slice, which is used for all nodes
+#   - 'global': create one proxy docker container, used for all slices and all nodes (this option is not implemented)
+proxy_type=slice
+
+# The config options is the same as for a dockermaster, as the proxy uses a dedicated proxymaster
+# see the dockermaster_1 example below for details
+max_containers=20
+starting_ipv4_port=2222
+public_ipv4=dockeram.example.com
