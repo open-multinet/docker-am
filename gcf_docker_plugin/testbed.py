@@ -184,7 +184,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                             or config.get(r, option_name) is None \
                             or config.get(r, option_name) == "":
                         return if_missing
-                    else:
+                else:
                         return config.get(r, option_name)
 
                 if r == 'general':
@@ -201,7 +201,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                         # but use PYRO to use one on a remote host instead of a local one.
                         # This means that this uses docker on a remote host
                         uri = "PYRO:dockermanager@" + config.get(r, "dockermaster_pyro4_host") + ":" + config.get(r, "dockermaster_pyro4_port")
-                        dockermanager = Pyro4.Proxy(uri)
+                    dockermanager = Pyro4.Proxy(uri)
                         dockermanager._pyroHmacKey = config.get(r, "dockermaster_pyro4_password")
 
                     if r.startswith("proxy"):
@@ -230,7 +230,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                                                               int(config_fetch('starting_ipv4_port', '12000')),
                                                               dockermanager)])
                         #Here you can add the example resource. (You have to delete STATE_FILENAME to reload resources)
-                        #self._agg.add_resources([ResourceExample(str(uuid.uuid4()), "127.0.0.1")])
+                #self._agg.add_resources([ResourceExample(str(uuid.uuid4()), "127.0.0.1")])
             self.dumpState()
             if self.public_url is None:
                 self.public_url = self._url
@@ -386,7 +386,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         ALLOCATE_LOCK.acquire()
         available = self.resources(available=True)
         available = sorted(available, key=lambda a: a.size(), reverse=True)
-
+                
         # Note: This only handles unbound nodes. Any attempt by the client
         # to specify a node is ignored.
         unbound = list()
@@ -456,7 +456,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                 resource = r.matchResource(sliver_type, component_id, exclusive)
                 if resource is None:
                     # Search next available resource
-                    continue
+                        continue
                 else:
                     #resource found
                     if component_id is not None and (resource.id != component_id):
@@ -490,7 +490,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             # # Need to parse this into datetime
             # start_time_raw = options['geni_start_time']
             # start_time = self._naiveUTC(dateutil.parser.parse(start_time_raw))
-            return self.errorResult(am3.AM_API.BAD_ARGS,
+            return self.errorResult(am3.AM_API.BAD_ARGS, 
                                     "geni_start_time is not supported")
         # start_time = max(now, start_time)
         # if (start_time > self.min_expire(creds)):
@@ -557,7 +557,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         # Log the allocation
         self.logger.info("Allocated new slice %s" % slice_urn)
         for sliver in newslice.slivers():
-            self.logger.info("   Allocated resource %s to slice %s as sliver %s",
+            self.logger.info("Allocated resource %s to slice %s as sliver %s",
                              sliver.resource().id, slice_urn, sliver.urn())
 
         manifest = self.manifest_rspec(slice_urn)
