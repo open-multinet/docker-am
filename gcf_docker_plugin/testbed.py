@@ -129,8 +129,6 @@ OPSTATE_GENI_READY = am3.OPSTATE_GENI_READY
 OPSTATE_GENI_READY_BUSY = am3.OPSTATE_GENI_READY_BUSY
 OPSTATE_GENI_FAILED = am3.OPSTATE_GENI_FAILED
 
-CREATE_AUTOMATIC_PROXY = True
-
 EXPIRE_LOCK = threading.Lock()
 DUMP_LOCK= threading.Lock()
 ALLOCATE_LOCK = threading.Lock()
@@ -170,6 +168,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             self._agg = p.load()
             self._slices = p.load()
             self.proxy_dockermaster = p.load()
+            self.public_url = p.load()
             s.close()
         except Exception as e:
             self.logger.info(str(e))
@@ -409,7 +408,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             ALLOCATE_LOCK.release()
 
         proxy_resource = None
-        if CREATE_AUTOMATIC_PROXY:
+        if self.proxy_dockermaster is not None:
             proxy_resource = self.proxy_dockermaster.matchResource()
             if proxy_resource is None:
                 abort_resource_allocation()
@@ -1170,6 +1169,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             p.dump(self._agg)
             p.dump(self._slices)
             p.dump(self.proxy_dockermaster)
+            p.dump(self.public_url)
             s.close()
             copyfile(TMP_STATE_FILENAME, STATE_FILENAME)
         except RuntimeError:
