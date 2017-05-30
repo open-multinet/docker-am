@@ -1,9 +1,9 @@
 [Unit]
-Description=Aggregate Manager - GENI API
+Description=Docker Aggregate Manager - GENI API
 After=network.target
 
 [Service]
-WorkingDirectory=/root/bootstrap-geni-am
+WorkingDirectory=/root/docker-am
 Environment="PYTHONPATH=gcf_docker_plugin/"
 ExecStart=/usr/bin/python2 geni-tools/src/gcf-am.py -V 3 -c gcf_docker_plugin/gcf_config
 KillMode=process
