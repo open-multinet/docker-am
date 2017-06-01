@@ -184,7 +184,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                             or config.get(r, option_name) is None \
                             or config.get(r, option_name) == "":
                         return if_missing
-                else:
+                    else:
                         return config.get(r, option_name)
 
                 if r == 'general':
@@ -201,7 +201,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                         # but use PYRO to use one on a remote host instead of a local one.
                         # This means that this uses docker on a remote host
                         uri = "PYRO:dockermanager@" + config.get(r, "dockermaster_pyro4_host") + ":" + config.get(r, "dockermaster_pyro4_port")
-                    dockermanager = Pyro4.Proxy(uri)
+                        dockermanager = Pyro4.Proxy(uri)
                         dockermanager._pyroHmacKey = config.get(r, "dockermaster_pyro4_password")
 
                     if r.startswith("proxy"):
@@ -212,10 +212,10 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                         #    global means one fixed proxy.
                         proxy_type = config_fetch("type")
                         if proxy_type is None or not proxy_type in [ 'global', 'slice' ]:
-                            raise Exception("Invalid config: none or unknown proxy type specified in section \"{}\"".format(r));
+                            raise Exception("Invalid config: none or unknown proxy type specified in section \"{}\"".format(r))
                         if proxy_type == 'global':
                             raise Exception(
-                                "Valid proxy type {} specified in section \"{}\" is not yet supported".format(proxy_type,r));
+                                "Valid proxy type {} specified in section \"{}\" is not yet supported".format(proxy_type,r))
                         if proxy_type == 'slice':
                             self.proxy_dockermaster = DockerMaster(int(config.get(r, "max_containers", 20)),
                                                               config_fetch('node_ipv4_hostname'),
@@ -235,6 +235,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             if self.public_url is None:
                 self.public_url = self._url
                 self.logger.warn("Warning: no public_url in docker_am_config. Will use '%s' as URL", self.public_url)
+
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
     # The list of credentials are options - some single cred
@@ -315,7 +316,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         if 'geni_compressed' in options and options['geni_compressed']:
             try:
                 result = base64.b64encode(zlib.compress(result))
-            except Exception, exc:
+            except Exception as exc:
                 self.logger.error("Error compressing and encoding resource list: %s", traceback.format_exc())
                 raise Exception("Server error compressing resource list", exc)
         return self.successResult(result)
@@ -360,7 +361,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         try:
             rspec_dom = minidom.parseString(rspec)
             #TODO: remember to call rspec_dom.unlink() once no part of it is still needed. This speeds up freeing its memory.
-        except Exception, exc:
+        except Exception as exc:
             self.logger.error("Cannot create sliver %s. Exception parsing rspec: %s" % (slice_urn, exc))
             return self.errorResult(am3.AM_API.BAD_ARGS,
                                     'Bad Args: RSpec is unparseable')
@@ -492,14 +493,6 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             # start_time = self._naiveUTC(dateutil.parser.parse(start_time_raw))
             return self.errorResult(am3.AM_API.BAD_ARGS, 
                                     "geni_start_time is not supported")
-        # start_time = max(now, start_time)
-        # if (start_time > self.min_expire(creds)):
-        #     ALLOCATE_LOCK.acquire()
-        #     for sliver in newslice.slivers():
-        #         sliver.resource().deallocate()
-        #     ALLOCATE_LOCK.release()
-        #     return self.errorResult(am3.AM_API.BAD_ARGS,
-        #                             "Can't request start time on sliver after slice expiration")
 
         # determine max expiration time from credentials
         # do not create a sliver that will outlive the slice!
@@ -507,11 +500,11 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                                      ('geni_end_time' in options
                                       and options['geni_end_time']))
 
-        # # If we're allocating something for future, give a window
-        # # from start time in which to reserve
-        # if start_time > now:
-        #     expiration = min(start_time + self.max_alloc,
-        #                      self.min_expire(creds))
+        # determine end time as min of the slice
+        # and the requested time (if any)
+        end_time = self.min_expire(creds, None,
+                                   ('geni_end_time' in options
+                                    and options['geni_end_time']))
 
         # if slice exists, check accept only if no  existing sliver overlaps
         # with requested start/end time. If slice doesn't exist, create it
@@ -520,10 +513,10 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             # Check if any current slivers overlap with requested start/end
             one_slice_overlaps = False
             for sliver in newslice.slivers():
-                if sliver.startTime() < expiration and \
-                        sliver.endTime() > start_time:
-                    one_slice_overlaps = True
-                    break
+                if sliver.startTime() < end_time and \
+                            sliver.endTime() > start_time:
+                        one_slice_overlaps = True
+                        break
 
             if one_slice_overlaps:
                 ALLOCATE_LOCK.acquire()
@@ -544,7 +537,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                 resource.image = slice_urn+"::"+resource.image
             sliver.setExpiration(expiration)
             sliver.setStartTime(start_time)
-            sliver.setEndTime(expiration)
+            sliver.setEndTime(end_time)
             sliver.setAllocationState(STATE_GENI_ALLOCATED)
         for i in images_to_delete:
             if i.startswith("http://") or i.startswith("https://") and i not in newslice.images_to_delete:
@@ -902,7 +895,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         # give an empty manifest, not an error
         try:
             the_slice, slivers = self.decode_urns(urns)
-        except ApiErrorException, ae:
+        except ApiErrorException as ae:
             if ae.code == am3.AM_API.SEARCH_FAILED and "Unknown slice" in ae.output:
                 # This is ok
                 slivers = []
@@ -949,7 +942,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         if 'geni_compressed' in options and options['geni_compressed']:
             try:
                 manifest = base64.b64encode(zlib.compress(manifest))
-            except Exception, exc:
+            except Exception as exc:
                 self.logger.error("Error compressing and encoding resource list: %s", traceback.format_exc())
                 raise Exception("Server error compressing resource list", exc)
         value = dict(geni_rspec=manifest,
