@@ -388,14 +388,16 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         available = self.resources(available=True)
         available = sorted(available, key=lambda a: a.size(), reverse=True)
                 
-        # Note: This only handles unbound nodes. Any attempt by the client
-        # to specify a node is ignored.
-        unbound = list()
+        # Note: We only care about nodes for this component manager.
+        #       nodes without component_manager_id or with a component_manager_id of another AM are ignored
+        local_nodes = list()
         for node_elem in rspec_dom.documentElement.getElementsByTagName('node'):
             if node_elem.getAttribute("component_manager_id") == self._my_urn:
-                unbound.append(node_elem)
+                local_nodes.append(node_elem)
 
-        if len(unbound)==0:
+        # If there are no nodes in the RSpec that we should handle, the AM specification does not tell us what to do.
+        # In general, it is best to throw the SEARCH_FAILED error, because silently doing nothing is potentially too confusing.
+        if len(local_nodes)==0:
             ALLOCATE_LOCK.release()
             return self.errorResult(am3.AM_API.SEARCH_FAILED, "No requested resource can be allocated on this AM. "
                                                               "Check your request (usually bad component_manager_id)")
@@ -421,7 +423,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             proxy_resource.image = None
             resources.append(proxy_resource)
 
-        for node_elem in unbound:
+        for node_elem in local_nodes:
             client_id = node_elem.getAttribute('client_id')
             if client_id == "" or client_id is None:
                 abort_resource_allocation()
@@ -974,22 +976,30 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         resources = [sliver.resource() for sliver in slivers]
         self._agg.deallocate(the_slice.urn, resources)
         self._agg.deallocate(user_urn, resources)
+
+        delete_ev = threading.Event()
+
         def thread_delete(slivers):
             for sliver in slivers:
                 slyce = sliver.slice()
                 slyce.delete_sliver(sliver)
-                # If slice is now empty, delete it.
-                if not slyce.slivers():
-                    try:
-                        for i in self._slices[slyce.urn].images_to_delete:
-                            self.DockerManager.deleteImage(slyce.urn+"::"+i)
-                    except:
-                        pass
-                    self.logger.debug("Deleting empty slice %r", slyce.urn)
-                    del self._slices[slyce.urn]
+            delete_ev.set()
+            # If slice is now empty, delete it.
+            if not slyce.slivers():
+                try:
+                    for i in self._slices[slyce.urn].images_to_delete:
+                        self.DockerManager.deleteImage(slyce.urn+"::"+i)
+                except:
+                    pass
+                self.logger.debug("Deleting empty slice %r", slyce.urn)
+                del self._slices[slyce.urn]
             self.dumpState()
 
         threading.Thread(target=thread_delete, args=[slivers]).start()
+
+        #Wait, unless it takes too long (0.5 seconds)
+        delete_ev.wait(timeout=0.5)
+
         return self.successResult([s.status() for s in slivers])
 
     def Status(self, urns, credentials, options):

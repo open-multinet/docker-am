@@ -70,8 +70,6 @@ class DockerContainer(ExtendedResource):
     def deallocate(self):
         super(DockerContainer, self).deallocate()
         self.available=True
-        if (self.dockermaster is not None):
-            self.dockermaster.onDeallocateContainer(container=None, resources=[self])
 
     def getPort(self):
         return self.ssh_port
@@ -149,11 +147,16 @@ class DockerContainer(ExtendedResource):
         r = super(DockerContainer, self).genAdvertNode(_urn_authority, _my_urn)
         return r
 
-    # def reset(self):
-    #     super(DockerContainer, self).reset()
-    #     self._agg.deallocate(container=None, resources=[self])
-    #     self.image = None
-    #     self.error = ''
+    #This is called when the AM releases the resource (when deleting the sliver)
+    def reset(self):
+        super(DockerContainer, self).reset()
+        # don't think this one is needed
+        # self._agg.deallocate(container=None, resources=[self])
+        self.image = None
+        self.error = ''
+        #let the DockerMaster know that this resource is available again
+        if (self.dockermaster is not None):
+            self.dockermaster.onResetChild(self)
 
     def waitForSshConnection(self):
         """

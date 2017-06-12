@@ -47,9 +47,8 @@ class DockerMaster(ExtendedResource):
         self.pool = [DockerContainer(self, starting_ipv4_port, dockermanager, host, ipv6_prefix)
                      for _ in range(max_slots)]
 
-    def onDeallocateContainer(self, container, resources):
-        # THIS IS NOT AN OVERWRITE OF, SO DONT: # super(DockerMaster, self).deallocate()
-        self.pool.extend(resources)
+    def onResetChild(self, childResource):
+        self.pool.append(childResource)
 
     def genAdvertNode(self, _urn_authority, _my_urn):
         r = super(DockerMaster, self).genAdvertNode(_urn_authority, _my_urn)
