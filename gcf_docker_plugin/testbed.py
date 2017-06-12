@@ -976,22 +976,30 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         resources = [sliver.resource() for sliver in slivers]
         self._agg.deallocate(the_slice.urn, resources)
         self._agg.deallocate(user_urn, resources)
+
+        delete_ev = threading.Event()
+
         def thread_delete(slivers):
             for sliver in slivers:
                 slyce = sliver.slice()
                 slyce.delete_sliver(sliver)
-                # If slice is now empty, delete it.
-                if not slyce.slivers():
-                    try:
-                        for i in self._slices[slyce.urn].images_to_delete:
-                            self.DockerManager.deleteImage(slyce.urn+"::"+i)
-                    except:
-                        pass
-                    self.logger.debug("Deleting empty slice %r", slyce.urn)
-                    del self._slices[slyce.urn]
+            delete_ev.set()
+            # If slice is now empty, delete it.
+            if not slyce.slivers():
+                try:
+                    for i in self._slices[slyce.urn].images_to_delete:
+                        self.DockerManager.deleteImage(slyce.urn+"::"+i)
+                except:
+                    pass
+                self.logger.debug("Deleting empty slice %r", slyce.urn)
+                del self._slices[slyce.urn]
             self.dumpState()
 
         threading.Thread(target=thread_delete, args=[slivers]).start()
+
+        #Wait, unless it takes too long (0.5 seconds)
+        delete_ev.wait(timeout=0.5)
+
         return self.successResult([s.status() for s in slivers])
 
     def Status(self, urns, credentials, options):

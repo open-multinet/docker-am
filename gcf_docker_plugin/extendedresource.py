@@ -210,11 +210,10 @@ class ExtendedResource(Resource):
     def size(self):
         return 1
 
-    # #Set the instance in the original state
-    # def reset(self):
-    #     super(ExtendedResource, self).reset()
-    #     todo #todo figure out what reset is used for, remove if not used
-    #     self.error = ''
+    #This is called when the AM releases the resource (when deleting the sliver)
+    def reset(self):
+        super(ExtendedResource, self).reset()
+        self.error = ''
 
     #A "blocking" method which return True when the SSH connection is available = The node is fully ready for the user
     #Should return True, or set self.error with an error message and return False
