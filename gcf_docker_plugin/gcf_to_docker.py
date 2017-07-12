@@ -44,6 +44,8 @@ building = dict()
 
 @Pyro4.expose
 class DockerManager():
+    def __init__(self, default_image="jessie_gcf_ssh"):
+        self.default_image = default_image
 
     #Return the number of running containers
     def getRunningContainerCount(self):
@@ -83,9 +85,9 @@ class DockerManager():
     #image : Specific image to install (See processImage() documentation)
     def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None, image=None):
         if ssh_port is None:
-            ssh_port = reserveNextPort()
+            ssh_port = self.reserveNextPort()
         uid = str(uuid.uuid4()) if id==None else id
-        imageName = "jessie_gcf_ssh" #Default
+        imageName = self.default_image
         if image is not None:
             imageName=self.processImage(image)
             if not re.match(r'[a-fA-F0-9]{40}', imageName) and image.split("::")[1]!=imageName: #An error occured during processImage
@@ -103,8 +105,9 @@ class DockerManager():
         except Exception as e:
             if "Unable to find image" not in e.output:
                 return e.output
-            #Case if jessie_gcf_ssh is not yet built
-            build = "docker build -t jessie_gcf_ssh " + os.path.dirname(os.path.realpath(__file__))
+            #This should only be reached if the default_image itself is not yet built.
+            #  So we try building it, then retry the command, and fail if that still fails
+            build = "docker build -t "+self.default_image+" " + os.path.dirname(os.path.realpath(__file__))
             try:
                 if building.get(imageName, None) is None:
                     building[imageName] = threading.Lock()
@@ -166,9 +169,9 @@ class DockerManager():
             return False
         
     def resetContainer(self, id):
-        stopContainer(id)
-        removeContainer(id)
-        startNew(id)
+        self.stopContainer(id)
+        self.removeContainer(id)
+        self.startNew(id)
 
     #Setup a user in the container
     #ssh_keys : Array of public ssh keys to allow (authorized_keys file)
