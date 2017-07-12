@@ -44,8 +44,11 @@ building = dict()
 
 @Pyro4.expose
 class DockerManager(object):
-    def __init__(self, default_image="jessie_gcf_ssh"):
+    def __init__(self,
+                 default_image="jessie_gcf_ssh",
+                 default_image_dockerfile=os.path.dirname(os.path.realpath(__file__))):
         self.default_image = default_image
+        self.default_image_dockerfile = default_image_dockerfile
 
     #Return the number of running containers
     def getRunningContainerCount(self):
@@ -107,7 +110,7 @@ class DockerManager(object):
                 return e.output
             #This should only be reached if the default_image itself is not yet built.
             #  So we try building it, then retry the command, and fail if that still fails
-            build = "docker build -t "+self.default_image+" " + os.path.dirname(os.path.realpath(__file__))
+            build = "docker build -t "+self.default_image+" " + self.default_image_dockerfile
             try:
                 if building.get(imageName, None) is None:
                     building[imageName] = threading.Lock()
