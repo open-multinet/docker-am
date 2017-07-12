@@ -190,7 +190,7 @@ class DockerManager(object):
         except subprocess.CalledProcessError, e:
             return e.output
 
-    def setupContainer(self, id, user_keys_dict):
+    def setupContainer(self, container, id, user_keys_dict):
         for username, ssh_keys in user_keys_dict.items():
             res = self.setupUser(id, username, ssh_keys)
             if res is not True:
