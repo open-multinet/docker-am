@@ -80,7 +80,7 @@ starting_ipv4_port=12000
 # proxy_type (mandatory option) can have 2 values
 #   - 'slice': create one proxy docker container per slice, which is used for all nodes
 #   - 'global': create one proxy docker container, used for all slices and all nodes (this option is not implemented)
-proxy_type=slice
+type=slice
 
 # The config options is the same as for a dockermaster, as the proxy uses a dedicated proxymaster
 # see the dockermaster_1 example below for details
