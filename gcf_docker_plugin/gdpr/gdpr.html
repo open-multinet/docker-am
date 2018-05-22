@@ -1,15 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <title>GDPR Setting for user</title>
-        <link rel="stylesheet" href="gdpr/gdpr.css">
-        <script src="gdpr/gdpr.js"></script>
-    </head>
-    <body>
+<head>
+    <meta charset="utf-8">
+    <title>GDPR Setting for user</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.3/css/bootstrap.min.css" integrity="sha384-Zug+QiDoJOrZ5t4lssLdxGhVrurbmBWopoEl+M6BdEfwnCJZtKxi1KgxUyJq13dy" crossorigin="anonymous">
+    <link rel="stylesheet" href="gdpr/gdpr.css">
+
+    <script src="gdpr/gdpr.js"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.3/js/bootstrap.min.js" integrity="sha384-a5N7Y/aK3qNeh15eJKGWxsqtnX/wWdSZSKp+81YjTmS15nvnvxKHuzaWwXHDli+4" crossorigin="anonymous"></script>
+
+    <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+    <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="#">Testbed Name</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    User: urn
+                </li>
+                <li class="nav-item">
+                    Testbed access: denied
+                </li>
+                <li class="nav-item disabled">
+                    (accept the terms to be granted access)
+                </li>
+            </ul>
+        </div>
+    </nav>
+
     <h1>GDPR status <span id="status">unknown</span> for user <span id="userurn">unknown</span></h1>
     <p>Debug: <code id="debug">none</code></p>
     <p>Accept: <button onclick="accept_terms()">Accept</button></p>
     <p>Decline: <button onclick="decline_terms()">Decline</button></p>
-    </body>
+
+    <div class="card">
+        <!--<img class="card-img-top" src="..." alt="Card image cap">-->
+        <div class="card-body">
+            <h5 class="card-title">Basic Terms</h5>
+            <p class="card-text">These are some basic terms and conditions</p>
+            <a onclick="accept_terms()" class="btn btn-primary">Accept</a>
+
+            <input checked data-toggle="toggle" type="checkbox" onclick="accept_terms()">
+        </div>
+    </div>
+
+    <div class="card">
+        <!--<img class="card-img-top" src="..." alt="Card image cap">-->
+        <div class="card-body">
+            <h5 class="card-title">User Data Terms</h5>
+            <p class="card-text">This is about using user data in experiments. Are you using it?</p>
+            <input checked data-toggle="toggle" type="checkbox">
+        </div>
+    </div>
+</div>
+</div>
+</body>
 </html>
