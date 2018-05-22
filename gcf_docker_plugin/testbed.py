@@ -37,23 +37,18 @@ The GENI AM API is defined in the AggregateManager class.
 from __future__ import absolute_import
 
 import sys
-from xml.dom.minicompat import NodeList
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
-from gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteServer
+from gdpr.gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteServer
 
 sys.path.insert(1, '../geni-tools/src')
 
 import base64
 import collections
 import datetime
-import dateutil.parser
-import logging
 import os
 import traceback
-import uuid
 import xml.dom.minidom as minidom
-import xmlrpclib
 import zlib
 import ConfigParser
 import threading
@@ -65,24 +60,15 @@ import Pyro4
 from StringIO import StringIO
 from lxml import etree
 from gcf.geni.am.aggregate import Aggregate
-from dockercontainer import DockerContainer
 from dockermaster import DockerMaster
 from gcf_to_docker import DockerManager
-from resourceexample import ResourceExample
-from gcf import geni
-from gcf.geni.util.tz_util import tzd
 from gcf.geni.util.urn_util import publicid_to_urn
 from gcf.geni.util import urn_util as urn
-from gcf.geni.SecureXMLRPCServer import SecureXMLRPCServer, SecureXMLRPCRequestHandler
 
 from gcf.sfa.trust.credential import Credential
-from gcf.sfa.trust.abac_credential import ABACCredential
 from gcf.gcf_version import GCF_VERSION
 
-from gcf.omnilib.util import credparsing as credutils
-
 from gcf.geni.auth.base_authorizer import *
-from gcf.geni.am.am_method_context import AMMethodContext
 from gcf.geni.am.api_error_exception import ApiErrorException
 
 from shutil import copyfile
