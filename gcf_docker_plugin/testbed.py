@@ -40,6 +40,7 @@ import sys
 from xml.dom.minicompat import NodeList
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
+from gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteServer
 
 sys.path.insert(1, '../geni-tools/src')
 
@@ -72,7 +73,7 @@ from gcf import geni
 from gcf.geni.util.tz_util import tzd
 from gcf.geni.util.urn_util import publicid_to_urn
 from gcf.geni.util import urn_util as urn
-from gcf.geni.SecureXMLRPCServer import SecureXMLRPCServer
+from gcf.geni.SecureXMLRPCServer import SecureXMLRPCServer, SecureXMLRPCRequestHandler
 
 from gcf.sfa.trust.credential import Credential
 from gcf.sfa.trust.abac_credential import ABACCredential
@@ -237,6 +238,9 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                 self.logger.warn("Warning: no public_url in docker_am_config. Will use '%s' as URL", self.public_url)
 
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
+
+    # Make the XML-RPC server also serve some generic HTTP requests (used to server GDPR site)
+    custom_request_handler_class = SecureXMLRPCAndGDPRSiteServer
 
     # The list of credentials are options - some single cred
     # must give the caller required permissions.
