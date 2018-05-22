@@ -1,5 +1,15 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>GDPR Setting for user</title>
+        <link rel="stylesheet" href="gdpr/gdpr.css">
+        <script src="gdpr/gdpr.js"></script>
+    </head>
     <body>
-        <h1>GDPR site test OK.</h1>
+    <h1>GDPR status <span id="status">unknown</span> for user <span id="userurn">unknown</span></h1>
+    <p>Debug: <code id="debug">none</code></p>
+    <p>Accept: <button onclick="accept_terms()">Accept</button></p>
+    <p>Decline: <button onclick="decline_terms()">Decline</button></p>
     </body>
 </html>

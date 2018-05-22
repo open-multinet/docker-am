@@ -1,8 +1,74 @@
+import datetime
+
+import dateutil   #requires:  pip install python-dateutil
+import json
 import pkg_resources
+import sqlite3
 
 from gcf.geni.SecureXMLRPCServer import SecureXMLRPCRequestHandler
 
+class GdprDB():
+    def __init__(self):
+        self.con = sqlite3.connect('data/gdpr')
+        with self.con:
+            cursor = self.con.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS
+                gdpr_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)
+            ''')
+        self.con.close()
 
+    def find_user_accepts(self, user_urn):
+        """
+
+        :return: a pair of a date and dict mapping strings to booleans
+        """
+        self.con = sqlite3.connect('data/gdpr')
+        try:
+            with self.con:
+                cursor = self.con.cursor()
+                cursor.execute('''SELECT accept_json, until_date FROM gdpr_accepts WHERE user_urn=?''', (user_urn, ))
+                for row in cursor:
+                    # row['name'] returns the name column in the query, row['email'] returns email column.
+                    return (row['until_date'], json.loads(row['accept_json']))
+                return None
+        finally:
+            self.con.close()
+
+    def register_user_accepts(self, user_urn, accepts, until):
+        """
+
+        :param user_urn: user urn (str)
+        :type user_urn: str
+        :param accepts: a dict which lists what the user has accepted (str -> bool)
+        :type accepts: dict[str, bool]
+        :param until: RFC3339 formatted date until which the accepts are valid
+        :type until: str
+        """
+        self.con = sqlite3.connect('data/gdpr')
+        try:
+            with self.con:
+                cursor = self.con.cursor()
+                cursor.execute('''INSERT OR REPLACE INTO gdpr_accepts (user_urn, accept_json, until_date) 
+                                  VALUES (?, ?, ?)''', (user_urn, json.dumps(accepts), until))
+                return
+        finally:
+            self.con.close()
+
+    def delete_user_accepts(self, user_urn):
+        """
+
+        :param user_urn: user urn (str)
+        :type user_urn: str
+        """
+        self.con = sqlite3.connect('data/gdpr')
+        try:
+            with self.con:
+                cursor = self.con.cursor()
+                cursor.execute('''DELETE FROM gdpr_accepts WHERE user_urn=?''', (user_urn, ))
+                return
+        finally:
+            self.con.close()
 
 class GdprSite():
     _GDPR_SITE = None
@@ -14,13 +80,10 @@ class GdprSite():
          return cls._GDPR_SITE
 
     def __init__(self):
-        # resource_package = __name__
-        # resource_base_path = '/'.join(('gcf_docker_plugin', 'gdpr'))
-        # self._html = pkg_resources.resource_string(resource_package, resource_base_path+'/gdpr.html')
         self._html = pkg_resources.resource_string(__name__, 'gdpr.html')
-        # self._js = pkg_resources.resource_string(resource_package, resource_base_path+'/gdpr.js')
-        self._js = 'todo'
-        self._css = 'todo'
+        self._js = pkg_resources.resource_string(__name__, 'gdpr.js')
+        self._css = pkg_resources.resource_string(__name__, 'gdpr.css')
+        self._db = GdprDB()
         pass
 
     def html(self):
@@ -33,13 +96,23 @@ class GdprSite():
         return self._css
 
     def register_accept(self, user_urn):
+        self._db.register_user_accepts(user_urn, {'accept_main': True}, datetime.datetime.now(datetime.timezone.utc).isoformat())
         return
 
     def register_decline(self, user_urn):
+        self._db.delete_user_accepts(user_urn)
         return
 
-    def get_user_state(self, user_urn):
-        return { 'user': user_urn, 'accepted': True, 'until': 'TODO' }
+    def get_user_accepts(self, user_urn):
+        res = self._db.find_user_accepts(user_urn)
+        if res is None:
+            return None
+        (until_str, accepts) = res
+        until = dateutil.parser.parse(until_str)
+        assert until.tzinfo is not None
+        user_accepts = {'user': user_urn, 'until': until}
+        user_accepts.update(accepts)
+        return user_accepts
 
 
 class SecureXMLRPCAndGDPRSiteServer(SecureXMLRPCRequestHandler):
@@ -61,19 +134,45 @@ class SecureXMLRPCAndGDPRSiteServer(SecureXMLRPCRequestHandler):
 
         Most calls will be forwarded because they are XML-RPC calls, and get forwarded to the real method.
         """
-        self.log_message("Got server POST call: %s", self.path)
-        if self.path == '/gdpr' or self.path == '/gdpr/' or self.path == '/gdpr/index.html':
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            response = GdprSite.get().html()
-            self.send_header("Content-length", str(len(response)))
-            self.end_headers()
-            self.wfile.write(response)
-            return
+        # we don't actually support any POST at the moment. If we did, we'd intercept it here, and do it instead of defering to XML-RPC
 
         #call super method
         # super(SecureXMLRPCRequestHandler, self).do_POST()  # new style
         SecureXMLRPCRequestHandler.do_POST(self)
+
+    def do_DELETE(self):
+        """Handles the HTTP DELETE request.
+        """
+        self.log_message("Got server DELETE call: %s", self.path)
+        if self.path == '/gdpr' or self.path == '/gdpr/' or self.path == '/gdpr/accept':
+            client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
+            response = GdprSite.get().register_decline(client_urn)
+            self.send_response(204) # No Content
+            self.end_headers()
+            # self.wfile.close()
+            return
+
+        self.send_error(405, "Method not allowed here")
+
+    def do_PUT(self):
+        """Handles the HTTP PUT request.
+        """
+        self.log_message("Got server PUT call: %s", self.path)
+        if self.path == '/gdpr/accept':
+            client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
+            response = GdprSite.get().register_accept(client_urn)
+            self.send_response(204) # No Content
+            self.end_headers()
+            # self.wfile.close()
+            return
+
+        self.send_error(405, "Method not allowed here")
 
     def do_GET(self):
         """Handles the HTTP GET request.
@@ -85,10 +184,63 @@ class SecureXMLRPCAndGDPRSiteServer(SecureXMLRPCRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
             response = GdprSite.get().html()
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
             return
 
+        if self.path == '/gdpr/gdpr.js':
+            self.send_response(200)
+            self.send_header("Content-type", "application/javascript")
+            client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
+            response = GdprSite.get().js()
+            self.send_header("Content-length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
+
+        if self.path == '/gdpr/gdpr.css':
+            self.send_response(200)
+            self.send_header("Content-type", "text/css")
+            client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
+            response = GdprSite.get().css()
+            self.send_header("Content-length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
+
+        if self.path == '/gdpr/accept':
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            client_urn = self.find_client_urn()
+            if client_urn is None:
+                self.report_forbidden()
+                return
+            response = json.dumps(GdprSite.get().get_user_accepts(client_urn), indent=4)
+            if response is None:
+                self.report_404()
+                return
+            self.send_header("Content-length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
+
         self.report_404()
+
+    def report_forbidden(self):
+        self.send_response(403)
+        response = 'Forbidden'
+        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
