@@ -81,11 +81,11 @@ class SecureXMLRPCAndGDPRSiteServer(SecureXMLRPCRequestHandler):
         GET calls are never XML-RPC calls, so we should return 404 if we don't handle them
         """
         self.log_message("Got server GET call: %s", self.path)
-        if self.path == '/test.html':
+        if self.path == '/gdpr' or self.path == '/gdpr/' or self.path == '/gdpr/index.html':
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             client_urn = self.find_client_urn()
-            response = '<html>\n   <body>\n      <h1>HTML GET Test Success for client {}</h1>\n   </body>\n</html>\n'.format(client_urn)
+            response = GdprSite.get().html()
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
