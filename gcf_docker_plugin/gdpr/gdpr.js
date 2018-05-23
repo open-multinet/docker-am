@@ -12,6 +12,12 @@ function load_info() {
             document.getElementById("debug").innerHTML = xhttp.responseText;
             document.getElementById("status").innerHTML = 'loaded';
             document.getElementById("userurn").innerHTML = 'todo';
+
+            document.getElementById("basic_accept").prop('checked', true).change(); //TODO
+            document.getElementById("userdata_accept").prop('checked', true).change(); //TODO
+
+            document.getElementById("testbed-denied").prop('hidden', true).change(); //TODO
+            document.getElementById("testbed-allowed").prop('hidden', true).change(); //TODO
         } else {
             document.getElementById("debug").innerHTML = xhttp.responseText;
             document.getElementById("status").innerHTML = 'LOAD ERROR';
@@ -21,7 +27,18 @@ function load_info() {
     xhttp.send();
 }
 
-function accept_terms() {
+function on_update_accept() {
+    console.log("on_update_accept()");
+    var basic_accept = document.getElementById("basic_accept").prop('checked');
+    var userdata_accept = document.getElementById("userdata_accept").prop('checked');
+    var terms = {
+        'basic': basic_accept,
+        'userdata': userdata_accept
+    };
+    send_accept_terms(terms);
+}
+
+function send_accept_terms(terms) {
     console.log("accept_terms()");
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -35,14 +52,14 @@ function accept_terms() {
     };
     xhttp.open("PUT", "/gdpr/accept", true);
     xhttp.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(''); //empty for now
+    xhr.send(JSON.stringify(terms));
 }
 
-function decline_terms() {
-    console.log("decline_terms()");
+function decline_all_terms() {
+    console.log("decline_all_terms()");
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
-        console.log("decline_terms onreadystatechange readyState="+this.readyState+" status="+this.status);
+        console.log("decline_all_terms onreadystatechange readyState="+this.readyState+" status="+this.status);
         if (this.readyState == 4 && this.status == 204) {
             load_info();
         } else {
