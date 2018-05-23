@@ -55,8 +55,7 @@ function load_info() {
             console.log("load_info onload FAILURE status="+this.status);
         }
     };
-//    xhttp.open("GET", "/gdpr/accept", true);
-    xhttp.open("GET", "debug_accept.json", true);
+    xhttp.open("GET", "/gdpr/accept", true);
     xhttp.send();
 }
 

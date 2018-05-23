@@ -95,8 +95,17 @@ class GdprSite():
     def css(self):
         return self._css
 
-    def register_accept(self, user_urn):
-        self._db.register_user_accepts(user_urn, {'accept_main': True}, datetime.datetime.now(datetime.timezone.utc).isoformat())
+    def register_accept(self, user_urn, accepts):
+        safe_accepts = {}
+        keys = [ 'accept_main', 'accept_userdata' ]
+        for key in keys:
+            safe_accepts[key] = bool(accepts[key]) if key in accepts else False
+
+        safe_accepts['testbed_access'] = safe_accepts['accept_main'] and safe_accepts['accept_userdata']
+
+        self._db.register_user_accepts(user_urn,
+                                       safe_accepts,
+                                       datetime.datetime.now(datetime.timezone.utc).isoformat())
         return
 
     def register_decline(self, user_urn):
