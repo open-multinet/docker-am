@@ -42,8 +42,6 @@ function load_info() {
         if (this.status == 200) {
             var accepts = JSON.parse(xhttp.responseText);
 
-            document.getElementById("debug").innerHTML = xhttp.responseText;
-            document.getElementById("debug_status").innerHTML = 'loaded';
             document.getElementById("userurn").innerHTML = accepts.user_urn;
 
             document.getElementById("basic_accept").checked = accepts.accept_basic;
@@ -51,6 +49,8 @@ function load_info() {
 
             document.getElementById("testbed-denied").hidden = accepts.testbed_access;
             document.getElementById("testbed-allowed").hidden = !accepts.testbed_access;
+
+            document.getElementById("until-date").innerHTML = accepts.until;
         } else {
             console.log("load_info onload FAILURE status="+this.status);
         }
@@ -88,6 +88,7 @@ function send_accept_terms(terms) {
 }
 
 function decline_all_terms() {
+    set_loading(true);
 //    console.log("decline_all_terms()");
     var xhttp = new XMLHttpRequest();
     xhttp.onload = function() {
