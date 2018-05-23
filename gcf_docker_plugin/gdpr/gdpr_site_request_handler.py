@@ -95,11 +95,11 @@ class GdprSite():
     def css(self):
         return self._css
 
-    def register_accept(self, user_urn, accepts):
+    def register_accept(self, user_urn, user_accepts):
         safe_accepts = {}
         keys = [ 'accept_main', 'accept_userdata' ]
         for key in keys:
-            safe_accepts[key] = bool(accepts[key]) if key in accepts else False
+            safe_accepts[key] = bool(user_accepts[key]) if key in user_accepts else False
 
         safe_accepts['testbed_access'] = safe_accepts['accept_main'] and safe_accepts['accept_userdata']
 
@@ -138,6 +138,35 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
                     return san_val
         return None
 
+    def read_request_data(self, max_bytes=None):
+        #copied from SimpleXMLRPCServer do_POST
+        max_chunk_size = 10 * 1024 * 1024
+        size_remaining = int(self.headers["content-length"])
+
+        if max_bytes is not None and size_remaining > max_bytes:
+            self.send_error(400, "Client is sending too much data")
+            self.send_header("Content-length", "0")
+            self.end_headers()
+            return None
+
+        L = []
+        while size_remaining:
+            chunk_size = min(size_remaining, max_chunk_size)
+            chunk = self.rfile.read(chunk_size)
+            if not chunk:
+                break
+            L.append(chunk)
+            size_remaining -= len(L[-1])
+
+        if len(L) == 0:
+            self.send_error(400, "Required data missing")
+            self.send_header("Content-length", "0")
+            self.end_headers()
+            return None
+
+        data = ''.join(L)
+        return self.decode_request_content(data)
+
     def do_POST(self):
         """Handles the HTTP POST request.
 
@@ -158,8 +187,9 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = GdprSite.get().register_decline(client_urn)
+            GdprSite.get().register_decline(client_urn)
             self.send_response(204) # No Content
+            self.send_header("Content-length", "0")
             self.end_headers()
             # self.wfile.close()
             return
@@ -175,8 +205,21 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = GdprSite.get().register_accept(client_urn)
+            data = self.read_request_data(max_bytes=1000) #These are always very small JSON messages
+            if data is None:
+                # we assume read_request_data has set the right error
+                return
+            try:
+                user_accepts = json.loads(data)
+            except ValueError:
+                self.send_error(400, "JSON parse exception")
+                self.send_header("Content-length", "0")
+                self.end_headers()
+                return
+
+            GdprSite.get().register_accept(client_urn, user_accepts)
             self.send_response(204) # No Content
+            self.send_header("Content-length", "0")
             self.end_headers()
             # self.wfile.close()
             return
