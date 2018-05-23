@@ -124,7 +124,7 @@ class GdprSite():
         return user_accepts
 
 
-class SecureXMLRPCAndGDPRSiteServer(SecureXMLRPCRequestHandler):
+class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
     def find_client_urn(self):
         cert_dict = self.request.getpeercert()
         # self.log_message("findClientUrn in: %s", cert_dict)

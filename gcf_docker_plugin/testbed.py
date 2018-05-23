@@ -39,7 +39,7 @@ from __future__ import absolute_import
 import sys
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
-from gdpr.gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteServer
+from gdpr.gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteRequestHandler
 
 sys.path.insert(1, '../geni-tools/src')
 
@@ -226,7 +226,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
     # Make the XML-RPC server also serve some generic HTTP requests (used to server GDPR site)
-    custom_request_handler_class = SecureXMLRPCAndGDPRSiteServer
+    custom_request_handler_class = SecureXMLRPCAndGDPRSiteRequestHandler
 
     # The list of credentials are options - some single cred
     # must give the caller required permissions.
