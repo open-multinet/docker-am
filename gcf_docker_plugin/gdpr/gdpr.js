@@ -1,74 +1,106 @@
 
+function set_loading(is_loading) {
+//    console.log("set_loading("+is_loading+")");
+    if (is_loading) {
+        document.getElementById("userurn").innerHTML = 'loading...';
+    } else {
+        document.getElementById("userurn").innerHTML = '-';
+    }
+
+    document.getElementById("testbed-denied").hidden = true;
+    document.getElementById("testbed-allowed").hidden = true;
+
+    var loadedonce = document.getElementsByClassName("loadedonce");
+    for(var i = 0; i < loadedonce.length; i++) {
+        if (is_loading) {
+           loadedonce.item(i).hidden = false;
+       }
+    }
+
+    var loaded = document.getElementsByClassName("loaded");
+    for(var i = 0; i < loaded.length; i++) {
+       loaded.item(i).hidden = is_loading;
+    }
+
+    var loading = document.getElementsByClassName("loading");
+    for(var i = 0; i < loading.length; i++) {
+       loading.item(i).hidden = !is_loading;
+//        if (!is_loading) {
+//            loading.item(i).style.display = 'none';
+//        } else {
+//            loading.item(i).style.display = 'block';
+//        }
+    }
+}
+
 function load_info() {
-    console.log("load_info()");
-    document.getElementById("status").innerHTML = 'loading...';
-    document.getElementById("userurn").innerHTML = 'loading...';
-    document.getElementById("debug").innerHTML = 'loading info...';
-
+//    console.log("load_info()");
+    set_loading(true);
     var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        console.log("load_info onreadystatechange readyState="+this.readyState+" status="+this.status);
-        if (this.readyState == 4 && this.status == 200) {
+    xhttp.onload = function() {
+        set_loading(false);
+        if (this.status == 200) {
+            var accepts = JSON.parse(xhttp.responseText);
+
             document.getElementById("debug").innerHTML = xhttp.responseText;
-            document.getElementById("status").innerHTML = 'loaded';
-            document.getElementById("userurn").innerHTML = 'todo';
+            document.getElementById("debug_status").innerHTML = 'loaded';
+            document.getElementById("userurn").innerHTML = accepts.user_urn;
 
-            document.getElementById("basic_accept").prop('checked', true).change(); //TODO
-            document.getElementById("userdata_accept").prop('checked', true).change(); //TODO
+            document.getElementById("basic_accept").checked = accepts.accept_basic;
+            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
-            document.getElementById("testbed-denied").prop('hidden', true).change(); //TODO
-            document.getElementById("testbed-allowed").prop('hidden', true).change(); //TODO
+            document.getElementById("testbed-denied").hidden = accepts.testbed_access;
+            document.getElementById("testbed-allowed").hidden = !accepts.testbed_access;
         } else {
-            document.getElementById("debug").innerHTML = xhttp.responseText;
-            document.getElementById("status").innerHTML = 'LOAD ERROR';
+            console.log("load_info onload FAILURE status="+this.status);
         }
     };
-    xhttp.open("GET", "/gdpr/accept", true);
+//    xhttp.open("GET", "/gdpr/accept", true);
+    xhttp.open("GET", "debug_accept.json", true);
     xhttp.send();
 }
 
-function on_update_accept() {
-    console.log("on_update_accept()");
-    var basic_accept = document.getElementById("basic_accept").prop('checked');
-    var userdata_accept = document.getElementById("userdata_accept").prop('checked');
+function on_toggle_accept(event) {
+//    console.log("on_toggle_accept()");
+    var basic_accept = document.getElementById("basic_accept").checked;
+    var userdata_accept = document.getElementById("userdata_accept").checked;
     var terms = {
-        'basic': basic_accept,
-        'userdata': userdata_accept
+        'accept_basic': basic_accept,
+        'accept_userdata': userdata_accept
     };
+    set_loading(true);
     send_accept_terms(terms);
 }
 
 function send_accept_terms(terms) {
-    console.log("accept_terms()");
+//    console.log("send_accept_terms()");
     var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        console.log("accept_terms onreadystatechange readyState="+this.readyState+" status="+this.status);
-        if (this.readyState == 4 && this.status == 204) {
+    xhttp.onload = function() {
+        if (this.status == 204) {
             load_info();
         } else {
-            document.getElementById("debug").innerHTML = xhttp.responseText;
-            document.getElementById("status").innerHTML = 'ACCEPT ERROR';
+            console.log("accept_terms onload FAILURE status="+this.status);
         }
     };
     xhttp.open("PUT", "/gdpr/accept", true);
     xhttp.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify(terms));
+    xhttp.send(JSON.stringify(terms));
 }
 
 function decline_all_terms() {
-    console.log("decline_all_terms()");
+//    console.log("decline_all_terms()");
     var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        console.log("decline_all_terms onreadystatechange readyState="+this.readyState+" status="+this.status);
-        if (this.readyState == 4 && this.status == 204) {
+    xhttp.onload = function() {
+        if (this.status == 204) {
             load_info();
         } else {
-            document.getElementById("debug").innerHTML = xhttp.responseText;
-            document.getElementById("status").innerHTML = 'DECLINE ERROR';
+            console.log("decline_all_terms onload FAILURE status="+this.status);
         }
     };
     xhttp.open("DELETE", "/gdpr/accept", true);
     xhttp.send();
 }
 
-load_info();
+window.onload = function() {
+    load_info();
+}

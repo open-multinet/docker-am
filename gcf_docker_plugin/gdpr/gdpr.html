@@ -19,6 +19,8 @@
 
     <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
     <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
 </head>
 <body>
 <div class="container">
@@ -33,7 +35,7 @@
             <!--</span>-->
 
             <span class="navbar-text">
-                User: urn loading
+                User: <span id="userurn">?</span>
               </span>
 
             <!--<span class="navbar-text badge badge-danger">-->
@@ -57,7 +59,13 @@
         </div>
     </nav>
 
-    <div class="alert alert-danger" role="alert" id="testbed-denied">
+    <div class="alert alert-secondary loading" role="alert">
+        <div>
+            Testbed access: <button class="btn btn-sm btn-warning"><i class="fas fa-spinner fa-pulse"></i> Loading...</button>
+        </div>
+    </div>
+
+    <div class="alert alert-danger" role="alert" id="testbed-denied" hidden>
         <div>
             Testbed access: <span class="badge badge-danger">Denied</span>
         </div>
@@ -81,12 +89,22 @@
         <div class="card-body">
             <h5 class="card-title">Basic Terms &amp; Conditions</h5>
             <p class="card-text">These are some basic terms and conditions</p>
-
-            <input id="basic_accept" data-toggle="toggle" data-on="Accepted" data-off="Declined" data-onstyle="success" data-offstyle="danger" type="checkbox" onchange="on_update_accept()"/>
+        </div>
+        <div class="card-footer">
+            Current status:
+            <span class="loadedonce">
+                <input id="basic_accept" data-toggle="toggle"
+                       data-width="100" data-height="40"
+                       data-on="Accepted" data-off="Declined"
+                       data-onstyle="success" data-offstyle="danger"
+                       type="checkbox" onchange="on_toggle_accept()"/>
+            </span>
+            <button class="btn btn-sm btn-warning loading"><i class="fas fa-spinner fa-pulse"></i> Loading...</button>
         </div>
     </div>
 
-    <div class="card mb-3 text-white bg-dark">
+    <!--<div class="card mb-3 text-white bg-dark">-->
+    <div class="card mb-3">
         <div class="card-header">
             User Data Terms &amp; Conditions
         </div>
@@ -94,13 +112,27 @@
             <h5 class="card-title">User Data Terms &amp; Conditions</h5>
             <p class="card-text">This is about using user data in experiments. Are you using it?</p>
 
-            <input id="userdata_accept" data-toggle="toggle" data-on="No" data-off="Yes" data-onstyle="success" data-offstyle="danger" type="checkbox" onchange="on_update_accept()"/>
+            <span class="loadedonce">
+                <input id="userdata_accept" data-toggle="toggle"
+                       data-width="100" data-height="40"
+                       data-on="No" data-off="Yes"
+                       data-onstyle="success" data-offstyle="danger"
+                       type="checkbox" onchange="on_toggle_accept()"/>
+            </span>
+            <button class="btn btn-sm btn-warning loading"><i class="fas fa-spinner fa-pulse"></i> Loading...</button>
         </div>
-        <div class="card-footer text-muted">
-            valid for 2 weeks
+        <!--<div class="card-footer text-muted">-->
+        <!--valid for 2 weeks-->
+        <!--</div>-->
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            You previous consent has been stored. If you wish, you can revoke all consent given.
+            This implies that you do not agree to the terms &amp; conditions, and thus will not be able to use the testbed.
+            <button class="btn btn-danger" onclick="decline_all_terms()">Revoke All Consent</button>
         </div>
     </div>
-    <p>Debug: <code id="debug">none</code></p>
 </div>
 </body>
 </html>
