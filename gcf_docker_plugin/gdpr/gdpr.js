@@ -51,6 +51,15 @@ function load_info() {
             document.getElementById("testbed-allowed").hidden = !accepts.testbed_access;
 
             document.getElementById("until-date").innerHTML = accepts.until;
+
+            //let jFed know
+            if (window.jfed && window.jfed.approveWithDateISO8601 && window.jfed.decline) {
+                if (accepts.testbed_access) {
+                    window.jfed.approveWithDateISO8601(accepts.until);
+                } else {
+                    window.jfed.decline();
+                }
+            }
         } else {
             console.log("load_info onload FAILURE status="+this.status);
         }
@@ -99,8 +108,44 @@ function decline_all_terms() {
     };
     xhttp.open("DELETE", "/gdpr/accept", true);
     xhttp.send();
+
+    if (window.jfed && window.jfed.decline) {
+        window.jfed.decline();
+    }
+}
+
+function initJFed() {
+//  if (window.jfed && window.jfed.decline) {
+//      //let jFed know the users hasn't accepted the Terms and Conditions yet.
+//      window.jfed.decline();
+//  }
+
+  //nothing to do: load_info will set the stored info
 }
 
 window.onload = function() {
+    if (window.jfed) {
+      initJFed();
+    } else {
+      //window.jfed is not (yet) available
+      //trick to make browser call  initJFed() when window.jfed becomes available.
+      Object.defineProperty(window, 'jfed', {
+        configurable: true,
+        enumerable: true,
+        writeable: true,
+        get: function() {
+          return this._jfed;
+        },
+        set: function(val) {
+          this._jfed = val;
+          initJFed();
+        }
+      });
+
+      if (window.jfed) {
+        initJFed();
+      }
+    }
+
     load_info();
 }
