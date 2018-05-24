@@ -39,6 +39,7 @@ from __future__ import absolute_import
 import sys
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
+from gdpr.gdpr_helper import GdprHelper
 from gdpr.gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteRequestHandler
 
 sys.path.insert(1, '../geni-tools/src')
@@ -346,6 +347,13 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         # Grab the user_urn
         user_urn = gid.GID(string=options['geni_true_caller_cert']).get_urn()
 
+        testbed_access_ok = GdprHelper.get().has_testbed_access(user_urn)
+        if not testbed_access_ok:
+            self.logger.error("Cannot create sliver. No testbed access for user '%s'" % user_urn)
+            return self.errorResult(am3.AM_API.REFUSED,
+                                    '[T&C-APPROVAL-MISSING] '
+                                    'Approval of the Terms & Conditions is required in order to use this testbed. '
+                                    'Please visit '+self.public_url+'/gdpr/index.html')
 
         rspec_dom = None
         try:

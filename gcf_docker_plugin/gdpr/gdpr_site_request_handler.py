@@ -3,88 +3,27 @@ import datetime
 import dateutil   #requires:  pip install python-dateutil
 import json
 import pkg_resources
-import sqlite3
 
 from gcf.geni.SecureXMLRPCServer import SecureXMLRPCRequestHandler
 
-class GdprDB():
-    def __init__(self):
-        self.con = sqlite3.connect('data/gdpr')
-        with self.con:
-            cursor = self.con.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS
-                gdpr_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)
-            ''')
-        self.con.close()
+from gdpr.gdpr_db import GdprDB
+from gdpr.gdpr_helper import GdprHelper
 
-    def find_user_accepts(self, user_urn):
-        """
 
-        :return: a pair of a date and dict mapping strings to booleans
-        """
-        self.con = sqlite3.connect('data/gdpr')
-        try:
-            with self.con:
-                cursor = self.con.cursor()
-                cursor.execute('''SELECT accept_json, until_date FROM gdpr_accepts WHERE user_urn=?''', (user_urn, ))
-                for row in cursor:
-                    # row['name'] returns the name column in the query, row['email'] returns email column.
-                    return (row['until_date'], json.loads(row['accept_json']))
-                return None
-        finally:
-            self.con.close()
-
-    def register_user_accepts(self, user_urn, accepts, until):
-        """
-
-        :param user_urn: user urn (str)
-        :type user_urn: str
-        :param accepts: a dict which lists what the user has accepted (str -> bool)
-        :type accepts: dict[str, bool]
-        :param until: RFC3339 formatted date until which the accepts are valid
-        :type until: str
-        """
-        self.con = sqlite3.connect('data/gdpr')
-        try:
-            with self.con:
-                cursor = self.con.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO gdpr_accepts (user_urn, accept_json, until_date) 
-                                  VALUES (?, ?, ?)''', (user_urn, json.dumps(accepts), until))
-                return
-        finally:
-            self.con.close()
-
-    def delete_user_accepts(self, user_urn):
-        """
-
-        :param user_urn: user urn (str)
-        :type user_urn: str
-        """
-        self.con = sqlite3.connect('data/gdpr')
-        try:
-            with self.con:
-                cursor = self.con.cursor()
-                cursor.execute('''DELETE FROM gdpr_accepts WHERE user_urn=?''', (user_urn, ))
-                return
-        finally:
-            self.con.close()
-
-class GdprSite():
+class GdprSite(GdprHelper):
     _GDPR_SITE = None
 
     @classmethod
     def get(cls):
-         if cls._GDPR_SITE is None:
-             cls._GDPR_SITE = GdprSite()
-         return cls._GDPR_SITE
+        if cls._GDPR_SITE is None:
+            cls._GDPR_SITE = GdprSite()
+        return cls._GDPR_SITE
 
     def __init__(self):
+        super(GdprSite, self).__init__()
         self._html = pkg_resources.resource_string(__name__, 'gdpr.html')
         self._js = pkg_resources.resource_string(__name__, 'gdpr.js')
         self._css = pkg_resources.resource_string(__name__, 'gdpr.css')
-        self._db = GdprDB()
-        pass
 
     def html(self):
         return self._html
@@ -97,11 +36,11 @@ class GdprSite():
 
     def register_accept(self, user_urn, user_accepts):
         safe_accepts = {}
-        keys = [ 'accept_main', 'accept_userdata' ]
+        keys = ['accept_main', 'accept_userdata']
         for key in keys:
             safe_accepts[key] = bool(user_accepts[key]) if key in user_accepts else False
 
-        safe_accepts['testbed_access'] = safe_accepts['accept_main'] and safe_accepts['accept_userdata']
+        safe_accepts['testbed_access'] = self.derive_testbed_access(safe_accepts)
 
         self._db.register_user_accepts(user_urn,
                                        safe_accepts,
@@ -113,15 +52,7 @@ class GdprSite():
         return
 
     def get_user_accepts(self, user_urn):
-        res = self._db.find_user_accepts(user_urn)
-        if res is None:
-            return None
-        (until_str, accepts) = res
-        until = dateutil.parser.parse(until_str)
-        assert until.tzinfo is not None
-        user_accepts = {'user': user_urn, 'until': until}
-        user_accepts.update(accepts)
-        return user_accepts
+        return super(GdprSite, self).get_user_accepts(user_urn)
 
 
 class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
@@ -232,7 +163,13 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
         GET calls are never XML-RPC calls, so we should return 404 if we don't handle them
         """
         self.log_message("Got server GET call: %s", self.path)
-        if self.path == '/gdpr' or self.path == '/gdpr/' or self.path == '/gdpr/index.html':
+        if self.path == '/gdpr' or self.path == '/gdpr/':
+            self.send_response(301)
+            self.send_header("Location", "/gdpr/index.html")
+            self.end_headers()
+            return
+
+        if self.path == '/gdpr/index.html':
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             client_urn = self.find_client_urn()
