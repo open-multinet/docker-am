@@ -22,11 +22,11 @@ class GdprHelper(object):
     def get_user_accepts(self, user_urn):
         res = self._db.find_user_accepts(user_urn)
         if res is None:
-            return None
+            return { 'user_urn': user_urn, 'testbed_access': False }
         (until_str, accepts) = res
         until = dateutil.parser.parse(until_str)
         assert until.tzinfo is not None
-        user_accepts = {'user': user_urn, 'until': until}
+        user_accepts = {'user_urn': user_urn, 'until': until}
         user_accepts.update(accepts)
         return user_accepts
 

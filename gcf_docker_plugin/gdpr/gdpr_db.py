@@ -2,14 +2,13 @@ import json
 import sqlite3
 
 class GdprDB(object):
+    db_file = 'gdpr.db'
+
     def __init__(self):
-        self.con = sqlite3.connect('data/gdpr')
+        self.con = sqlite3.connect(GdprDB.db_file)
         with self.con:
             cursor = self.con.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS
-                gdpr_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)
-            ''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS gdpr_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)''')
         self.con.close()
 
     def find_user_accepts(self, user_urn):
@@ -17,7 +16,7 @@ class GdprDB(object):
 
         :return: a pair of a date and dict mapping strings to booleans
         """
-        self.con = sqlite3.connect('data/gdpr')
+        self.con = sqlite3.connect(GdprDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
@@ -39,7 +38,7 @@ class GdprDB(object):
         :param until: RFC3339 formatted date until which the accepts are valid
         :type until: str
         """
-        self.con = sqlite3.connect('data/gdpr')
+        self.con = sqlite3.connect(GdprDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
@@ -55,7 +54,7 @@ class GdprDB(object):
         :param user_urn: user urn (str)
         :type user_urn: str
         """
-        self.con = sqlite3.connect('data/gdpr')
+        self.con = sqlite3.connect(GdprDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
