@@ -44,7 +44,7 @@ function load_info() {
 
             document.getElementById("userurn").innerHTML = accepts.user_urn;
 
-            document.getElementById("basic_accept").checked = accepts.accept_basic;
+            document.getElementById("main_accept").checked = accepts.accept_main;
             document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
             document.getElementById("testbed-denied").hidden = accepts.testbed_access;
@@ -70,10 +70,10 @@ function load_info() {
 
 function on_toggle_accept(event) {
 //    console.log("on_toggle_accept()");
-    var basic_accept = document.getElementById("basic_accept").checked;
+    var main_accept = document.getElementById("main_accept").checked;
     var userdata_accept = document.getElementById("userdata_accept").checked;
     var terms = {
-        'accept_basic': basic_accept,
+        'accept_main': main_accept,
         'accept_userdata': userdata_accept
     };
     set_loading(true);
