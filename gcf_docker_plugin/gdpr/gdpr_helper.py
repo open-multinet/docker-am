@@ -27,7 +27,7 @@ class GdprHelper(object):
         (until_str, accepts) = res
         until = dateutil.parser.parse(until_str)
         assert until.tzinfo is not None
-        user_accepts = {'user_urn': user_urn, 'until': until}
+        user_accepts = {'user_urn': user_urn, 'until': until.isoformat() }
         user_accepts.update(accepts)
         return user_accepts
 
