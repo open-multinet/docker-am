@@ -33,6 +33,8 @@ function set_loading(is_loading) {
     }
 }
 
+var change_event_prevent_hack = false;
+
 function load_info() {
 //    console.log("load_info()");
     set_loading(true);
@@ -47,6 +49,7 @@ function load_info() {
 //            document.getElementById("main_accept").checked = accepts.accept_main;
 //            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
+            change_event_prevent_hack = true;
             if (accepts.accept_main) {
                 $('#main_accept').bootstrapToggle('on');
             } else {
@@ -58,6 +61,7 @@ function load_info() {
             } else {
                 $('#userdata_accept').bootstrapToggle('off');
             }
+            change_event_prevent_hack = false;
 
             document.getElementById("testbed-denied").hidden = accepts.testbed_access;
             document.getElementById("testbed-allowed").hidden = !accepts.testbed_access;
@@ -81,6 +85,7 @@ function load_info() {
 }
 
 function on_toggle_accept(event) {
+    if (change_event_prevent_hack) { return; }
 //    console.log("on_toggle_accept()");
     var main_accept = document.getElementById("main_accept").checked;
     var userdata_accept = document.getElementById("userdata_accept").checked;
