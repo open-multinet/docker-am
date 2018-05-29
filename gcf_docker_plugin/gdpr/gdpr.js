@@ -48,15 +48,15 @@ function load_info() {
 //            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
             if (accepts.accept_main) {
-                $('#main_accept').prop('checked', true).change();//.bootstrapToggle('on');
+                $('#main_accept').bootstrapToggle('on');
             } else {
-                $('#main_accept').prop('checked', false).change();//.bootstrapToggle('off');
+                $('#main_accept').bootstrapToggle('off');
             }
 
             if (accepts.accept_userdata) {
-                $('#userdata_accept').prop('checked', true).change();//.bootstrapToggle('on');
+                $('#userdata_accept').bootstrapToggle('on');
             } else {
-                $('#userdata_accept').prop('checked', false).change();//.bootstrapToggle('off');
+                $('#userdata_accept').bootstrapToggle('off');
             }
 
             document.getElementById("testbed-denied").hidden = accepts.testbed_access;
