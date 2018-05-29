@@ -48,15 +48,19 @@ function load_info() {
 //            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
             if (accepts.accept_main) {
-                $('#main_accept').bootstrapToggle('on');
+                document.getElementById("main_accept").bootstrapToggle('on');
+//                $('#main_accept').bootstrapToggle('on');
             } else {
-                $('#main_accept').bootstrapToggle('off');
+//                $('#main_accept').bootstrapToggle('off');
+                document.getElementById("main_accept").bootstrapToggle('off');
             }
 
             if (accepts.accept_userdata) {
-                $('#userdata_accept').bootstrapToggle('on');
+                document.getElementById("userdata_accept").bootstrapToggle('on');
+//                $('#userdata_accept').bootstrapToggle('on');
             } else {
-                $('#userdata_accept').bootstrapToggle('off');
+                document.getElementById("userdata_accept").bootstrapToggle('off');
+//                $('#userdata_accept').bootstrapToggle('off');
             }
 
             document.getElementById("testbed-denied").hidden = accepts.testbed_access;
@@ -159,7 +163,5 @@ window.onload = function() {
       }
     }
 
-    $('#main_accept').bootstrapToggle();
-    $('#userdate_accept').bootstrapToggle();
     load_info();
 }
