@@ -49,8 +49,8 @@ function load_info() {
 
             change_event_prevent_hack = true;
 
-//            document.getElementById("main_accept").checked = accepts.accept_main;
-//            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
+            document.getElementById("main_accept").checked = accepts.accept_main;
+            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
 //            if (accepts.accept_main) {
 //                $('#main_accept').bootstrapToggle('on');
