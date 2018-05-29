@@ -45,7 +45,7 @@ class GdprSite(GdprHelper):
 
         self._db.register_user_accepts(user_urn,
                                        safe_accepts,
-                                       datetime.datetime.now(tz.tzutc).isoformat())
+                                       datetime.datetime.now(tz.tzutc()).isoformat())
                                        # datetime.datetime.now(datetime.timezone.utc).isoformat())
         return
 
