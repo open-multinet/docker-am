@@ -44,8 +44,8 @@ function load_info() {
 
             document.getElementById("userurn").innerHTML = accepts.user_urn;
 
-            document.getElementById("main_accept").checked = accepts.accept_main;
-            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
+//            document.getElementById("main_accept").checked = accepts.accept_main;
+//            document.getElementById("userdata_accept").checked = accepts.accept_userdata;
 
             if (accepts.accept_main) {
                 $('#main_accept').bootstrapToggle('on');
@@ -159,5 +159,7 @@ window.onload = function() {
       }
     }
 
+    $('#main_accept').bootstrapToggle();
+    $('#userdate_accept').bootstrapToggle();
     load_info();
 }
