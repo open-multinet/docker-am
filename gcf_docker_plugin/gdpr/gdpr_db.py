@@ -22,8 +22,8 @@ class GdprDB(object):
                 cursor = self.con.cursor()
                 cursor.execute('''SELECT accept_json, until_date FROM gdpr_accepts WHERE user_urn=?''', (user_urn,))
                 for row in cursor:
-                    # row['name'] returns the name column in the query, row['email'] returns email column.
-                    return (row['until_date'], json.loads(row['accept_json']))
+                    # return (row['until_date'], json.loads(row['accept_json']))
+                    return (row[1], json.loads(row[0]))
                 return None
         finally:
             self.con.close()
