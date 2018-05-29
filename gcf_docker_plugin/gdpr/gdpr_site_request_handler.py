@@ -1,6 +1,7 @@
 import datetime
 
 import dateutil   #requires:  pip install python-dateutil
+from dateutil import tz
 import json
 import pkg_resources
 
@@ -44,7 +45,8 @@ class GdprSite(GdprHelper):
 
         self._db.register_user_accepts(user_urn,
                                        safe_accepts,
-                                       datetime.datetime.now(datetime.timezone.utc).isoformat())
+                                       datetime.datetime.now(tz.tzutc).isoformat())
+                                       # datetime.datetime.now(datetime.timezone.utc).isoformat())
         return
 
     def register_decline(self, user_urn):
