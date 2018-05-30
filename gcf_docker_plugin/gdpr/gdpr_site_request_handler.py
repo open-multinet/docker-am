@@ -5,6 +5,7 @@ from dateutil import tz
 import json
 import pkg_resources
 
+from gcf.geni.SecureThreadedXMLRPCServer import SecureThreadedXMLRPCRequestHandler
 from gcf.geni.SecureXMLRPCServer import SecureXMLRPCRequestHandler
 
 from gdpr.gdpr_db import GdprDB
@@ -57,7 +58,7 @@ class GdprSite(GdprHelper):
         return super(GdprSite, self).get_user_accepts(user_urn)
 
 
-class SecureXMLRPCAndGDPRSiteRequestHandler(SecureXMLRPCRequestHandler):
+class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
     def find_client_urn(self):
         cert_dict = self.request.getpeercert()
         # self.log_message("findClientUrn in: %s", cert_dict)
