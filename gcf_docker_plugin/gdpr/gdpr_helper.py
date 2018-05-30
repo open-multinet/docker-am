@@ -27,6 +27,13 @@ class GdprHelper(object):
         (until_str, accepts) = res
         until = dateutil.parser.parse(until_str)
         assert until.tzinfo is not None
+
+        # Special case, if expired accepts are stored, ignore them
+        now = datetime.datetime.now(tz.tzutc()) + datetime.timedelta(minutes=10)
+        assert now.tzinfo is not None
+        if until < now:
+            return { 'user_urn': user_urn, 'testbed_access': False }
+
         user_accepts = {'user_urn': user_urn, 'until': until.isoformat() }
         user_accepts.update(accepts)
         return user_accepts

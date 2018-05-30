@@ -134,6 +134,12 @@ function decline_all_terms() {
     }
 }
 
+function close_window() {
+    if (window.jfed && window.jfed.close) {
+        window.jfed.close();
+    }
+}
+
 function initJFed() {
 //  if (window.jfed && window.jfed.decline) {
 //      //let jFed know the users hasn't accepted the Terms and Conditions yet.
