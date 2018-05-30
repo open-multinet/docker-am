@@ -353,7 +353,7 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             return self.errorResult(am3.AM_API.REFUSED,
                                     '[T&C-APPROVAL-MISSING] '
                                     'Approval of the Terms & Conditions is required in order to use this testbed. '
-                                    'Please visit '+self.public_url+'/gdpr/index.html')
+                                    'Please visit '+self.public_url+'gdpr/index.html')
 
         rspec_dom = None
         try:
