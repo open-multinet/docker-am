@@ -44,7 +44,7 @@ class GdprSite(GdprHelper):
 
         safe_accepts['testbed_access'] = self.derive_testbed_access(safe_accepts)
 
-        accept_until = datetime.datetime.now(tz.tzutc()) + datetime.timedelta(days=2)
+        accept_until = datetime.datetime.now(tz.tzutc()) + datetime.timedelta(days=365)
 
         self._db.register_user_accepts(user_urn,
                                        safe_accepts,
