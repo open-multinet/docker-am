@@ -4,7 +4,7 @@ from dateutil import tz
 import dateutil   #requires:  pip install python-dateutil
 import json
 
-from terms_conditions.terms_conditions import TermsAndConditionsDB
+from terms_conditions import TermsAndConditionsDB
 
 #Use: TermsAndConditionsHelper.get().has_testbed_access(user_urn)
 class TermsAndConditionsHelper(object):

@@ -8,8 +8,8 @@ import pkg_resources
 from gcf.geni.SecureThreadedXMLRPCServer import SecureThreadedXMLRPCRequestHandler
 from gcf.geni.SecureXMLRPCServer import SecureXMLRPCRequestHandler
 
-from terms_conditions.terms_conditions import TermsAndConditionsDB
-from terms_conditions.terms_conditions_helper import TermsAndConditionsHelper
+from terms_conditions import TermsAndConditionsDB
+from terms_conditions_helper import TermsAndConditionsHelper
 
 
 class TermsAndConditionsSite(TermsAndConditionsHelper):
