@@ -83,7 +83,7 @@ function load_info() {
             console.log("load_info onload FAILURE status="+this.status);
         }
     };
-    xhttp.open("GET", "/gdpr/accept", true);
+    xhttp.open("GET", "/terms_conditions/accept", true);
     xhttp.send();
 }
 
@@ -110,7 +110,7 @@ function send_accept_terms(terms) {
             console.log("accept_terms onload FAILURE status="+this.status);
         }
     };
-    xhttp.open("PUT", "/gdpr/accept", true);
+    xhttp.open("PUT", "/terms_conditions/accept", true);
     xhttp.setRequestHeader('Content-Type', 'application/json');
     xhttp.send(JSON.stringify(terms));
 }
@@ -126,7 +126,7 @@ function decline_all_terms() {
             console.log("decline_all_terms onload FAILURE status="+this.status);
         }
     };
-    xhttp.open("DELETE", "/gdpr/accept", true);
+    xhttp.open("DELETE", "/terms_conditions/accept", true);
     xhttp.send();
 
     if (window.jfed && window.jfed.decline) {

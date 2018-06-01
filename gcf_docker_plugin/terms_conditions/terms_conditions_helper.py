@@ -4,20 +4,20 @@ from dateutil import tz
 import dateutil   #requires:  pip install python-dateutil
 import json
 
-from gdpr.gdpr_db import GdprDB
+from terms_conditions.terms_conditions import TermsAndConditionsDB
 
-#Use: GdprHelper.get().has_testbed_access(user_urn)
-class GdprHelper(object):
-    _GDPR_HELPER = None
+#Use: TermsAndConditionsHelper.get().has_testbed_access(user_urn)
+class TermsAndConditionsHelper(object):
+    _TC_HELPER = None
 
     @classmethod
     def get(cls):
-        if cls._GDPR_HELPER is None:
-            cls._GDPR_HELPER = GdprHelper()
-        return cls._GDPR_HELPER
+        if cls._TC_HELPER is None:
+            cls._TC_HELPER = TermsAndConditionsHelper()
+        return cls._TC_HELPER
 
     def __init__(self):
-        self._db = GdprDB()
+        self._db = TermsAndConditionsDB()
         pass
 
     def get_user_accepts(self, user_urn):

@@ -39,8 +39,8 @@ from __future__ import absolute_import
 import sys
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
-from gdpr.gdpr_helper import GdprHelper
-from gdpr.gdpr_site_request_handler import SecureXMLRPCAndGDPRSiteRequestHandler
+from terms_conditions.terms_conditions_helper import TermsAndConditionsHelper
+from terms_conditions.terms_conditions_site_request_handler import SecureXMLRPCAndTermsAndConditionsSiteRequestHandler
 
 sys.path.insert(1, '../geni-tools/src')
 
@@ -128,6 +128,10 @@ STATE_CODE_VERSION = '1'
 STATE_FILENAME = 'am-state-v{}.dat'.format(STATE_CODE_VERSION)
 
 class DockerAggregateManager(am3.ReferenceAggregateManager):
+
+    # Make the XML-RPC server also serve some generic HTTP requests (used to serve terms_conditions site)
+    custom_request_handler_class = SecureXMLRPCAndTermsAndConditionsSiteRequestHandler
+    
     def __init__(self, root_cert, urn_authority, url, **kwargs):
         """
         Create a testbed AggregateManager ("AM"), which supports docker containers and simple raw resources
@@ -225,9 +229,6 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                 self.logger.warn("Warning: no public_url in docker_am_config. Will use '%s' as URL", self.public_url)
 
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
-
-    # Make the XML-RPC server also serve some generic HTTP requests (used to server GDPR site)
-    custom_request_handler_class = SecureXMLRPCAndGDPRSiteRequestHandler
 
     # The list of credentials are options - some single cred
     # must give the caller required permissions.
@@ -347,13 +348,13 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         # Grab the user_urn
         user_urn = gid.GID(string=options['geni_true_caller_cert']).get_urn()
 
-        testbed_access_ok = GdprHelper.get().has_testbed_access(user_urn)
+        testbed_access_ok = TermsAndConditionsHelper.get().has_testbed_access(user_urn)
         if not testbed_access_ok:
             self.logger.error("Cannot create sliver. No testbed access for user '%s'" % user_urn)
             return self.errorResult(am3.AM_API.REFUSED,
                                     '[T&C-APPROVAL-MISSING] '
                                     'Approval of the Terms & Conditions is required in order to use this testbed. '
-                                    'Please visit '+self.public_url+'gdpr/index.html')
+                                    'Please visit '+self.public_url+'terms_conditions/index.html')
 
         rspec_dom = None
         try:

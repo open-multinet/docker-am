@@ -8,24 +8,24 @@ import pkg_resources
 from gcf.geni.SecureThreadedXMLRPCServer import SecureThreadedXMLRPCRequestHandler
 from gcf.geni.SecureXMLRPCServer import SecureXMLRPCRequestHandler
 
-from gdpr.gdpr_db import GdprDB
-from gdpr.gdpr_helper import GdprHelper
+from terms_conditions.terms_conditions import TermsAndConditionsDB
+from terms_conditions.terms_conditions_helper import TermsAndConditionsHelper
 
 
-class GdprSite(GdprHelper):
-    _GDPR_SITE = None
+class TermsAndConditionsSite(TermsAndConditionsHelper):
+    _TC_SITE = None
 
     @classmethod
     def get(cls):
-        if cls._GDPR_SITE is None:
-            cls._GDPR_SITE = GdprSite()
-        return cls._GDPR_SITE
+        if cls._TC_SITE is None:
+            cls._TC_SITE = TermsAndConditionsSite()
+        return cls._TC_SITE
 
     def __init__(self):
-        super(GdprSite, self).__init__()
-        self._html = pkg_resources.resource_string(__name__, 'gdpr.html')
-        self._js = pkg_resources.resource_string(__name__, 'gdpr.js')
-        self._css = pkg_resources.resource_string(__name__, 'gdpr.css')
+        super(TermsAndConditionsSite, self).__init__()
+        self._html = pkg_resources.resource_string(__name__, 'terms_conditions.html')
+        self._js = pkg_resources.resource_string(__name__, 'terms_conditions.js')
+        self._css = pkg_resources.resource_string(__name__, 'terms_conditions.css')
 
     def html(self):
         return self._html
@@ -57,10 +57,10 @@ class GdprSite(GdprHelper):
         return
 
     def get_user_accepts(self, user_urn):
-        return super(GdprSite, self).get_user_accepts(user_urn)
+        return super(TermsAndConditionsSite, self).get_user_accepts(user_urn)
 
 
-class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
+class SecureXMLRPCAndTermsAndConditionsSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
     def find_client_urn(self):
         cert_dict = self.request.getpeercert()
         # self.log_message("findClientUrn in: %s", cert_dict)
@@ -118,12 +118,12 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
         """Handles the HTTP DELETE request.
         """
         self.log_message("Got server DELETE call: %s", self.path)
-        if self.path == '/gdpr' or self.path == '/gdpr/' or self.path == '/gdpr/accept':
+        if self.path == '/terms_conditions' or self.path == '/terms_conditions/' or self.path == '/terms_conditions/accept':
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
                 return
-            GdprSite.get().register_decline(client_urn)
+            TermsAndConditionsSite.get().register_decline(client_urn)
             self.send_response(204) # No Content
             self.send_header("Content-length", "0")
             self.end_headers()
@@ -136,7 +136,7 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
         """Handles the HTTP PUT request.
         """
         self.log_message("Got server PUT call: %s", self.path)
-        if self.path == '/gdpr/accept':
+        if self.path == '/terms_conditions/accept':
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
@@ -153,7 +153,7 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
                 self.end_headers()
                 return
 
-            GdprSite.get().register_accept(client_urn, user_accepts)
+            TermsAndConditionsSite.get().register_accept(client_urn, user_accepts)
             self.send_response(204) # No Content
             self.send_header("Content-length", "0")
             self.end_headers()
@@ -168,59 +168,59 @@ class SecureXMLRPCAndGDPRSiteRequestHandler(SecureThreadedXMLRPCRequestHandler):
         GET calls are never XML-RPC calls, so we should return 404 if we don't handle them
         """
         self.log_message("Got server GET call: %s", self.path)
-        if self.path == '/gdpr' or self.path == '/gdpr/':
+        if self.path == '/terms_conditions' or self.path == '/terms_conditions/':
             self.send_response(301)
-            self.send_header("Location", "/gdpr/index.html")
+            self.send_header("Location", "/terms_conditions/index.html")
             self.end_headers()
             return
 
-        if self.path == '/gdpr/index.html':
+        if self.path == '/terms_conditions/index.html':
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = GdprSite.get().html()
+            response = TermsAndConditionsSite.get().html()
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
             return
 
-        if self.path == '/gdpr/gdpr.js':
+        if self.path == '/terms_conditions/terms_conditions.js':
             self.send_response(200)
             self.send_header("Content-type", "application/javascript")
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = GdprSite.get().js()
+            response = TermsAndConditionsSite.get().js()
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
             return
 
-        if self.path == '/gdpr/gdpr.css':
+        if self.path == '/terms_conditions/terms_conditions.css':
             self.send_response(200)
             self.send_header("Content-type", "text/css")
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = GdprSite.get().css()
+            response = TermsAndConditionsSite.get().css()
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
             return
 
-        if self.path == '/gdpr/accept':
+        if self.path == '/terms_conditions/accept':
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             client_urn = self.find_client_urn()
             if client_urn is None:
                 self.report_forbidden()
                 return
-            response = json.dumps(GdprSite.get().get_user_accepts(client_urn), indent=4)
+            response = json.dumps(TermsAndConditionsSite.get().get_user_accepts(client_urn), indent=4)
             if response is None:
                 self.report_404()
                 return

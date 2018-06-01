@@ -1,14 +1,14 @@
 import json
 import sqlite3
 
-class GdprDB(object):
-    db_file = 'gdpr.db'
+class TermsAndConditionsDB(object):
+    db_file = 'terms_conditions.db'
 
     def __init__(self):
-        self.con = sqlite3.connect(GdprDB.db_file)
+        self.con = sqlite3.connect(TermsAndConditionsDB.db_file)
         with self.con:
             cursor = self.con.cursor()
-            cursor.execute('''CREATE TABLE IF NOT EXISTS gdpr_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS terms_conditions_accepts(user_urn TEXT PRIMARY KEY, accept_json TEXT, until_date TEXT)''')
         self.con.close()
 
     def find_user_accepts(self, user_urn):
@@ -16,11 +16,11 @@ class GdprDB(object):
 
         :return: a pair of a date and dict mapping strings to booleans
         """
-        self.con = sqlite3.connect(GdprDB.db_file)
+        self.con = sqlite3.connect(TermsAndConditionsDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
-                cursor.execute('''SELECT accept_json, until_date FROM gdpr_accepts WHERE user_urn=?''', (user_urn,))
+                cursor.execute('''SELECT accept_json, until_date FROM terms_conditions_accepts WHERE user_urn=?''', (user_urn,))
                 for row in cursor:
                     # return (row['until_date'], json.loads(row['accept_json']))
                     return (row[1], json.loads(row[0]))
@@ -38,11 +38,11 @@ class GdprDB(object):
         :param until: RFC3339 formatted date until which the accepts are valid
         :type until: str
         """
-        self.con = sqlite3.connect(GdprDB.db_file)
+        self.con = sqlite3.connect(TermsAndConditionsDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO gdpr_accepts (user_urn, accept_json, until_date) 
+                cursor.execute('''INSERT OR REPLACE INTO terms_conditions_accepts (user_urn, accept_json, until_date) 
                                   VALUES (?, ?, ?)''', (user_urn, json.dumps(accepts), until))
                 return
         finally:
@@ -54,11 +54,11 @@ class GdprDB(object):
         :param user_urn: user urn (str)
         :type user_urn: str
         """
-        self.con = sqlite3.connect(GdprDB.db_file)
+        self.con = sqlite3.connect(TermsAndConditionsDB.db_file)
         try:
             with self.con:
                 cursor = self.con.cursor()
-                cursor.execute('''DELETE FROM gdpr_accepts WHERE user_urn=?''', (user_urn,))
+                cursor.execute('''DELETE FROM terms_conditions_accepts WHERE user_urn=?''', (user_urn,))
                 return
         finally:
             self.con.close()
