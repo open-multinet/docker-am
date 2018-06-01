@@ -44,7 +44,7 @@ Addon integration
 
 This addon is integrated into the docker AM at 2 points.
 
-Note that these change are already integrated into the branch that contains this README. You do not need to make any changes.
+Note that these changes are already integrated into the branch that contains this README. You do not need to make any changes.
 These changes are documented here to give some insight into how the terms and condition addon works.
 
 First, the site is activated by 2 changes:
