@@ -164,7 +164,7 @@ class DockerManager(object):
     #Check if a container is up using netstat
     #In fact, check if the port is listenning
     def isContainerUp(self, port):
-        cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep '.*:' "+str(port)+"$'"
+        cmd = "netstat -ant 2>/dev/null | awk '{print $4}' | grep '.*:"+str(port)+"$'"
         try:
             out=subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
