@@ -43,9 +43,12 @@ lock = threading.Lock()
 building = dict()
 
 @Pyro4.expose
-class DockerManager():
-    def __init__(self, default_image="jessie_gcf_ssh"):
+class DockerManager(object):
+    def __init__(self,
+                 default_image="jessie_gcf_ssh",
+                 default_image_dockerfile_dir=os.path.dirname(os.path.realpath(__file__))):
         self.default_image = default_image
+        self.default_image_dockerfile_dir = default_image_dockerfile_dir
 
     #Return the number of running containers
     def getRunningContainerCount(self):
@@ -107,7 +110,7 @@ class DockerManager():
                 return e.output
             #This should only be reached if the default_image itself is not yet built.
             #  So we try building it, then retry the command, and fail if that still fails
-            build = "docker build -t "+self.default_image+" " + os.path.dirname(os.path.realpath(__file__))
+            build = "docker build -t "+self.default_image+" " + self.default_image_dockerfile_dir
             try:
                 if building.get(imageName, None) is None:
                     building[imageName] = threading.Lock()
@@ -167,7 +170,7 @@ class DockerManager():
             return True
         except subprocess.CalledProcessError:
             return False
-        
+
     def resetContainer(self, id):
         self.stopContainer(id)
         self.removeContainer(id)
@@ -190,7 +193,7 @@ class DockerManager():
         except subprocess.CalledProcessError, e:
             return e.output
 
-    def setupContainer(self, id, user_keys_dict):
+    def setupContainer(self, container, id, user_keys_dict):
         for username, ssh_keys in user_keys_dict.items():
             res = self.setupUser(id, username, ssh_keys)
             if res is not True:
@@ -222,7 +225,7 @@ class DockerManager():
             sys.stderr.write('Docker is not installed OR this user is not in the docker group OR the docker daemon is not started\n')
             exit(1)
 
-    #Get IPv6 of a container 
+    #Get IPv6 of a container
     def getIpV6(self, id):
         cmd = "docker inspect "+id
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
@@ -239,7 +242,7 @@ class DockerManager():
         return ipv6
 
     #Returns a random Mac Address with the same prefix as Docker (02:42:ac:11)
-    def randomMacAddress(self): 
+    def randomMacAddress(self):
         mac = [0x02, 0x42, 0xac, 0x11, random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
@@ -266,7 +269,7 @@ class DockerManager():
             return True
         except subprocess.CalledProcessError, e:
             return e.output
-    
+
     #Build the image given in parameter
     #image : could be URL to a DockerFile or a zip or just the name from Docker Hub (eg debian:jessie). Always starts with "foo::" (foo is usually the slice urn) to make the name "private"
     def processImage(self, image):
@@ -346,7 +349,7 @@ class DockerManager():
             return e.output
         shutil.rmtree(tmpdir)
         return True
-        
+
     #Download a file to the given path
     def dlfile(self, url, dest):
         try:
