@@ -37,22 +37,19 @@ The GENI AM API is defined in the AggregateManager class.
 from __future__ import absolute_import
 
 import sys
-from xml.dom.minicompat import NodeList
 
 from extendedresource import ExtendedResource, FIXED_PROXY_USER
+from terms_conditions.terms_conditions_helper import TermsAndConditionsHelper
+from terms_conditions.terms_conditions_site_request_handler import SecureXMLRPCAndTermsAndConditionsSiteRequestHandler
 
 sys.path.insert(1, '../geni-tools/src')
 
 import base64
 import collections
 import datetime
-import dateutil.parser
-import logging
 import os
 import traceback
-import uuid
 import xml.dom.minidom as minidom
-import xmlrpclib
 import zlib
 import ConfigParser
 import threading
@@ -64,24 +61,15 @@ import Pyro4
 from StringIO import StringIO
 from lxml import etree
 from gcf.geni.am.aggregate import Aggregate
-from dockercontainer import DockerContainer
 from dockermaster import DockerMaster
 from gcf_to_docker import DockerManager
-from resourceexample import ResourceExample
-from gcf import geni
-from gcf.geni.util.tz_util import tzd
 from gcf.geni.util.urn_util import publicid_to_urn
 from gcf.geni.util import urn_util as urn
-from gcf.geni.SecureXMLRPCServer import SecureXMLRPCServer
 
 from gcf.sfa.trust.credential import Credential
-from gcf.sfa.trust.abac_credential import ABACCredential
 from gcf.gcf_version import GCF_VERSION
 
-from gcf.omnilib.util import credparsing as credutils
-
 from gcf.geni.auth.base_authorizer import *
-from gcf.geni.am.am_method_context import AMMethodContext
 from gcf.geni.am.api_error_exception import ApiErrorException
 
 from shutil import copyfile
@@ -140,6 +128,7 @@ STATE_CODE_VERSION = '1'
 STATE_FILENAME = 'am-state-v{}.dat'.format(STATE_CODE_VERSION)
 
 class DockerAggregateManager(am3.ReferenceAggregateManager):
+    
     def __init__(self, root_cert, urn_authority, url, **kwargs):
         """
         Create a testbed AggregateManager ("AM"), which supports docker containers and simple raw resources
@@ -158,6 +147,8 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         self._my_urn = publicid_to_urn("%s %s %s" % (self._urn_authority, 'authority', 'am'))
         self.DockerManager = DockerManager()
         self.proxy_dockermaster = None
+        self.terms_and_conditions_site_enabled = False
+        self.disallow_users_if_terms_and_conditions_not_accepted = False
         thread_sliver_daemon = threading.Thread(target=self.expireSliversDaemon)
         thread_sliver_daemon.daemon=True
         thread_sliver_daemon.start()
@@ -169,6 +160,8 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             self._slices = p.load()
             self.proxy_dockermaster = p.load()
             self.public_url = p.load()
+            self.terms_and_conditions_site_enabled = p.load()
+            self.disallow_users_if_terms_and_conditions_not_accepted = p.load()
             s.close()
         except Exception as e:
             self.logger.info(str(e))
@@ -186,9 +179,18 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
                         return if_missing
                     else:
                         return config.get(r, option_name)
+                def config_fetch_bool(option_name, if_missing=None):
+                    res = config_fetch(option_name, if_missing)
+                    if res is None:
+                        return res
+                    return str(res).lower() in ("yes", "true", "t", "1")
 
                 if r == 'general':
                     self.public_url = config_fetch("public_url")
+                    self.terms_and_conditions_site_enabled = \
+                        config_fetch_bool("terms_and_conditions_site_enabled", if_missing=False)
+                    self.disallow_users_if_terms_and_conditions_not_accepted = \
+                        config_fetch_bool("disallow_users_if_terms_and_conditions_not_accepted", if_missing=False)
                     pass
                 else:
                     #Both proxy and resources need a dockermanager config
@@ -235,6 +237,10 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             if self.public_url is None:
                 self.public_url = self._url
                 self.logger.warn("Warning: no public_url in docker_am_config. Will use '%s' as URL", self.public_url)
+            if self.terms_and_conditions_site_enabled:
+                # Make the XML-RPC server also serve some generic HTTP requests (used to serve terms_conditions site)
+                self.logger.info("Enabling Terms and Conditions site")
+                self.custom_request_handler_class = SecureXMLRPCAndTermsAndConditionsSiteRequestHandler
 
         self.logger.info("Running %s AM v%d code version %s", self._am_type, self._api_version, GCF_VERSION)
 
@@ -356,6 +362,14 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
         # Grab the user_urn
         user_urn = gid.GID(string=options['geni_true_caller_cert']).get_urn()
 
+        if self.disallow_users_if_terms_and_conditions_not_accepted:
+            testbed_access_ok = TermsAndConditionsHelper.get().has_testbed_access(user_urn)
+            if not testbed_access_ok:
+                self.logger.error("Cannot create sliver. No testbed access for user '%s'" % user_urn)
+                return self.errorResult(am3.AM_API.REFUSED,
+                                        '[T&C-APPROVAL-MISSING] '
+                                        'Approval of the Terms & Conditions is required in order to use this testbed. '
+                                        'Please visit '+self.public_url+'terms_conditions/index.html')
 
         rspec_dom = None
         try:
@@ -1173,6 +1187,8 @@ class DockerAggregateManager(am3.ReferenceAggregateManager):
             p.dump(self._slices)
             p.dump(self.proxy_dockermaster)
             p.dump(self.public_url)
+            p.dump(self.terms_and_conditions_site_enabled)
+            p.dump(self.disallow_users_if_terms_and_conditions_not_accepted)
             s.close()
             copyfile(TMP_STATE_FILENAME, STATE_FILENAME)
         except RuntimeError:
