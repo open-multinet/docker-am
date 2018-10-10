@@ -97,7 +97,7 @@ class DockerContainer(ExtendedResource):
             return False
         else:
             self.error=''
-        out = self.DockerManager.setupContainer(self, self.id, self.user_keys_dict)
+        out = self.DockerManager.setupContainer(self.id, self.user_keys_dict)
         if out is not True:
             self.error = out
         else:
