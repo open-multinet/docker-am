@@ -87,7 +87,7 @@ class DockerContainer(ExtendedResource):
         super(DockerContainer, self).provision()
         if self.DockerManager.isContainerUp(self.ssh_port):
             self.DockerManager.removeContainer(self.id)
-        out = self.DockerManager.startNew(id=self.id,
+        out = self.DockerManager.startNew(container_id=self.id,
                                           sliver_type=self.chosen_sliver_type,
                                           ssh_port=self.ssh_port,
                                           mac_address=self.mac,

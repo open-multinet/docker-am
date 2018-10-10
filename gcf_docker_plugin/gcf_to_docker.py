@@ -81,15 +81,15 @@ class DockerManager(object):
         return port
 
     #Start a new container
-    #id : Specific name to give to the container
+    #container_id : Specific name to give to the container
     #sliver_type : Kind of container (limited to 100M memory for example)
     #ssh_port : Port to bind to port 22
     #mac_address : Defined mac address of the container
     #image : Specific image to install (See processImage() documentation)
-    def startNew(self, id=None, sliver_type=None, ssh_port=None, mac_address=None, image=None):
+    def startNew(self, container_id=None, sliver_type=None, ssh_port=None, mac_address=None, image=None):
         if ssh_port is None:
             ssh_port = self.reserveNextPort()
-        uid = str(uuid.uuid4()) if id==None else id
+        uid = str(uuid.uuid4()) if container_id == None else container_id
         imageName = self.default_image
         if image is not None:
             imageName=self.processImage(image)
@@ -131,8 +131,8 @@ class DockerManager(object):
             locked_port.remove(ssh_port)
         return True
 
-    def restartContainer(self, id):
-        cmd = "docker restart "+str(id)+" 2>&1"
+    def restartContainer(self, container_id):
+        cmd = "docker restart " + str(container_id) + " 2>&1"
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
@@ -145,16 +145,16 @@ class DockerManager(object):
         if port in locked_port:
             locked_port.remove(port)
 
-    def stopContainer(self, id):
-        cmd = "docker stop " + str(id)
+    def stopContainer(self, container_id):
+        cmd = "docker stop " + str(container_id)
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
         except Exception as e:
             return False
 
-    def removeContainer(self, id):
-        cmd = "docker rm -f " + str(id)
+    def removeContainer(self, container_id):
+        cmd = "docker rm -f " + str(container_id)
         try:
             subprocess.check_output(['bash', '-c', cmd]).decode('utf-8').strip()
             return True
@@ -171,38 +171,38 @@ class DockerManager(object):
         except subprocess.CalledProcessError:
             return False
 
-    def resetContainer(self, id):
-        self.stopContainer(id)
-        self.removeContainer(id)
-        self.startNew(id)
+    def resetContainer(self, container_id):
+        self.stopContainer(container_id)
+        self.removeContainer(container_id)
+        self.startNew(container_id)
 
     #Setup a user in the container
     #ssh_keys : Array of public ssh keys to allow (authorized_keys file)
-    def setupUser(self, id, username, ssh_keys):
+    def setupUser(self, container_id, username, ssh_keys):
         try:
-            cmd_create_user = "docker exec "+id+" sh -c 'grep \'^"+username+":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/"+username+" "+ username+" && mkdir -p /home/"+username+"/.ssh ; fi' 2>&1"
+            cmd_create_user = "docker exec " + container_id + " sh -c 'grep \'^" + username + ":\' /etc/passwd ; if [ $? -ne 0 ] ; then useradd -m -d /home/" + username + " " + username + " && mkdir -p /home/" + username + "/.ssh ; fi' 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_create_user])
-            cmd_add_key = "docker exec "+ id + " sh -c \"echo '' > /home/"+username+"/.ssh/authorized_keys\" 2>&1"
+            cmd_add_key = "docker exec " + container_id + " sh -c \"echo '' > /home/" + username + "/.ssh/authorized_keys\" 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_add_key])
             for key in ssh_keys:
-                cmd_add_key = "docker exec "+ id + " sh -c \"echo '"+key+"' >> /home/"+username+"/.ssh/authorized_keys\" 2>&1"
+                cmd_add_key = "docker exec " + container_id + " sh -c \"echo '" + key + "' >> /home/" + username + "/.ssh/authorized_keys\" 2>&1"
                 out = subprocess.check_output(['bash', '-c', cmd_add_key])
-            cmd_set_rights = "docker exec "+ id + " sh -c 'chown -R "+username+": /home/"+username+" && chmod 700 /home/"+username+"/.ssh && chmod 644 /home/"+username+"/.ssh/authorized_keys' 2>&1"
+            cmd_set_rights = "docker exec " + container_id + " sh -c 'chown -R " + username + ": /home/" + username + " && chmod 700 /home/" + username + "/.ssh && chmod 644 /home/" + username + "/.ssh/authorized_keys' 2>&1"
             out = subprocess.check_output(['bash', '-c', cmd_set_rights])
             return True
         except subprocess.CalledProcessError, e:
             return e.output
 
-    def setupContainer(self, container, id, user_keys_dict):
+    def setupContainer(self, container_id, user_keys_dict):
         for username, ssh_keys in user_keys_dict.items():
-            res = self.setupUser(id, username, ssh_keys)
+            res = self.setupUser(container_id, username, ssh_keys)
             if res is not True:
                 return res
         return True
 
     #Get the ssh_port used by a specific container
-    def getPort(self, id):
-        cmd = "docker ps --format {{.Names}}//{{.Ports}} --no-trunc | grep "+id
+    def getPort(self, container_id):
+        cmd = "docker ps --format {{.Names}}//{{.Ports}} --no-trunc | grep " + container_id
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         m = re.search(':([0-9]*)->', output)
         if m!=None:
@@ -211,8 +211,8 @@ class DockerManager(object):
             return None
 
     #Get list of user with an account in the container (with a home and authorized ssh key)
-    def getUsers(self, id):
-        cmd = "docker exec "+id+" find /home -name \"authorized_keys\" | grep \"/home/.*/.ssh/authorized_keys\" | cut -d'/' -f 3"
+    def getUsers(self, container_id):
+        cmd = "docker exec " + container_id + " find /home -name \"authorized_keys\" | grep \"/home/.*/.ssh/authorized_keys\" | cut -d'/' -f 3"
         out = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         return filter(None, out.split('\n')) #Remove empty elements
 
@@ -226,8 +226,8 @@ class DockerManager(object):
             exit(1)
 
     #Get IPv6 of a container
-    def getIpV6(self, id):
-        cmd = "docker inspect "+id
+    def getIpV6(self, container_id):
+        cmd = "docker inspect " + container_id
         output = subprocess.check_output(['bash', '-c', cmd]).strip().decode('utf-8')
         output = json.loads(output)
         return output[0]['NetworkSettings']['GlobalIPv6Address']
@@ -364,8 +364,8 @@ class DockerManager(object):
             logging.getLogger('gcf.am3').error("HTTP Error:", e.code, url)
 
     #Extract a tar.gz file given to the install_path in the container id
-    def installCommand(self, id, url, install_path):
-        cmd_docker = "docker exec "+id+" "
+    def installCommand(self, container_id, url, install_path):
+        cmd_docker = "docker exec " + container_id + " "
         filename = os.path.basename(url)
         ext = os.path.basename(url).split(".")[-1]
         cmd = cmd_docker+"mkdir -p "+install_path+" 2>&1"
@@ -385,8 +385,8 @@ class DockerManager(object):
     #.sh contains the command executed
     #.status contains the return status of the command
     #.txt return the output
-    def executeCommand(self, id, shell, cmd):
-        cmd_docker = "docker exec "+id+" "
+    def executeCommand(self, container_id, shell, cmd):
+        cmd_docker = "docker exec " + container_id + " "
         log_dir = "/tmp/"
         if shell not in ['sh', 'bash']:
             cmd = cmd_docker+"sh -c 'echo \"Invalid shell\" >> /tmp/execute.log '"
@@ -401,7 +401,7 @@ class DockerManager(object):
         tmp = tempfile.mkstemp()[1]
         with open(tmp, 'w') as local:
             local.write(cmd)
-        cmd = "docker cp "+tmp+" "+id+":/"+log_dir+"startup-"+str(next_nb)+".sh"
+        cmd = "docker cp " + tmp +" " + container_id + ":/" + log_dir + "startup-" + str(next_nb) + ".sh"
         try:
             subprocess.check_output(['bash', '-c', cmd])
             os.remove(tmp)
