@@ -31,6 +31,17 @@
 public_url = https://dockeram.example.com
 
 
+# Must the the terms and conditions site be served in addition to the AM? (from the same port as the AM)
+# Default: False
+terms_and_conditions_site_enabled=False
+
+# If this is set to true, Allocate calls will be prevented for users that have not (yet) accepted the terms
+#     and conditions on the terms and conditions site
+# Note: it makes little sense to set this to true unless terms_and_conditions_site_enabled is True as well
+# Default: False
+disallow_users_if_terms_and_conditions_not_accepted=False
+
+
 [dockermaster_1]
 
 # This section defines a single "dockermaster".
