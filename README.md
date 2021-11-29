@@ -162,7 +162,19 @@ INFO:cred-verifier:Adding trusted cert file ca-cert.pem
 INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
 ```
 
-Of course this AM is not C-BAS dependent and you can trust the certificate of any MA/SA. For example you can trust the MA/SA from iMinds, so you will be able to create a slice on wall2 and use it on your AM.
+# Trust your federation root authority
+
+Of course this AM is not C-BAS dependent and you can trust the certificate of any MA/SA.
+
+For example add the root CA certiciate from Fed4FIRE to your testbed "rootcadir", all users of the [Fed4FIRE portal](https://portal.fed4fire.eu) will be able to create experiments on your testbed. 
+You can find the Fed4FIRE root CA certificate here: https://portal.fed4fire.eu/root_certificate
+
+Example commands:
+```
+cd C-BAS/deploy/trusted/certs
+wget https://portal.fed4fire.eu/root_certificate
+# now restart your AM
+```
 
 # Configuring a remote DockerManager (Optional)
 
