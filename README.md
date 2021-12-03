@@ -60,7 +60,7 @@ The docker AM specific functionality is activated by setting ```delegate``` to `
 Path of this file : ```docker-am/gcf\_docker\_plugin/gcf_config```
 
 * base_name : Typically the name of your machine. This is the name used in the URN (``urn:publicid:IDN+docker.example.com+authority+am``)
-* rootcadir : A directory where your trusted root certificates are stored. These are the certificates of the MA/SA servers who's users the AM will trust. (wall2.pem for example)
+* rootcadir : A directory where your trusted root certificates are stored. These are the certificates of the MA/SA servers who's users the AM will trust. (`portal_fed4fire_root_certificate.pem` for example). See also ["Allow users to use your AM"](#allow-users-to-use-the-am)
 * host : This should be the DNS name of the server. It is used for binding the server socket. ```0.0.0.0``` is often a good choice if the hostname is not correctly configured on the server.
 * port : You are free to choose a port. 443 is recommended (because it is infrequently blocked by client side firewalls).
 * delegate : To activate the docker AM code, this must be ```testbed.DockerAggregateManager```
@@ -138,21 +138,43 @@ Make sure the location of the server key and certificate matches the keyfile and
 
 You can find some more details on how a certificate can be generated at https://stackoverflow.com/a/27931596/404495 
 
-# Starting the AM
+# Allow users to use the AM
 
-```sh docker-am/run_am.sh```
+To allow users to use your AM, you need to add the root certificates that are used to sign these user's certificates to the AM's `rootcadir`.
+That is the directory that contains PEM files of all the trusted root certificates.
 
-Or with the systemd service : ```cp am_docker.service /etc/systemd/system/```
+You can find and change this directory in `gcf_config`, by default, it is:
+```
+# The directory that stores the trusted roots of your CH/AM 
+# and those you have federated with
+# This can be a relative or absolute path.
+rootcadir=~/geni-tools/trusted_roots/
+```
 
-Edit the WorkingDirectory according to your installation, reload the systemd daemon : ```systemctl daemon-reload```, then start the AM : ```systemctl start am_docker.service```
+## Trust your federation root authority
 
-Check the status : ```systemctl status am_docker.service```
+Each user authority will provide a root certificate in PEM form, that you can add to `rootcadir`.
 
-# Trust your C-BAS installation
+For example if you add the root CA certiciate from Fed4FIRE to your testbed `rootcadir`, all users of the [Fed4FIRE portal](https://portal.fed4fire.eu) will be able to create experiments on your testbed. 
+You can find the Fed4FIRE root CA certificate here: https://portal.fed4fire.eu/root_certificate
 
-If you use C-BAS as Member Authority (MA) and Slice Authority (SA), you have to trust credentials from this. To do, just copy certificates used by C-BAS in your "rootcadir" (configured in gcf_config), usually there stored ```C-BAS/deploy/trusted/certs```.
+Example commands:
+```
+cd ~/geni-tools/trusted_roots/
+curl https://portal.fed4fire.eu/root_certificate > portal_fed4fire_root_certificate.pem
+# now restart your AM
+```
 
-Restart your AM, if you check the output of the server you should have this at the beginning :
+## Trust your C-BAS installation
+
+If you use [C-BAS](blob/master/C-BAS_config.md) as Member Authority (MA) and Slice Authority (SA), you have to trust credentials from this. To do, just copy certificates used by C-BAS to your `rootcadir` (configured in `gcf_config`). The certificates are usually stored in `C-BAS/deploy/trusted/certs`.
+
+Example:
+```
+cp -v C-BAS/deploy/trusted/certs/*.pem ~/geni-tools/trusted_roots/
+```
+
+The restart your AM. If you check the output of the server you should have this at the beginning :
 
 ```
 INFO:cred-verifier:Adding trusted cert file sa-cert.pem
@@ -162,19 +184,15 @@ INFO:cred-verifier:Adding trusted cert file ca-cert.pem
 INFO:cred-verifier:Combined dir of 4 trusted certs /root/C-BAS/deploy/trusted/certs/ into file /root/C-BAS/deploy/trusted/certs/CATedCACerts.pem for Python SSL support
 ```
 
-# Trust your federation root authority
+# Starting the AM
 
-Of course this AM is not C-BAS dependent and you can trust the certificate of any MA/SA.
+```sh docker-am/run_am.sh```
 
-For example add the root CA certiciate from Fed4FIRE to your testbed "rootcadir", all users of the [Fed4FIRE portal](https://portal.fed4fire.eu) will be able to create experiments on your testbed. 
-You can find the Fed4FIRE root CA certificate here: https://portal.fed4fire.eu/root_certificate
+Or with the systemd service : ```cp am_docker.service /etc/systemd/system/```
 
-Example commands:
-```
-cd C-BAS/deploy/trusted/certs
-wget https://portal.fed4fire.eu/root_certificate
-# now restart your AM
-```
+Edit the WorkingDirectory according to your installation, reload the systemd daemon : ```systemctl daemon-reload```, then start the AM : ```systemctl start am_docker.service```
+
+Check the status : ```systemctl status am_docker.service```
 
 # Configuring a remote DockerManager (Optional)
 
